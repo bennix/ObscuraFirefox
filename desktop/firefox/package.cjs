@@ -39,7 +39,7 @@ async function packageApp(input, output = path.resolve(__dirname, '../dist/Obscu
   const resources = path.join(contents, 'Resources/obscura-desktop');
   await fs.mkdir(path.join(resources, 'bin'), { recursive: true });
   const modules = (await fs.readdir(desktop)).filter(name => name.endsWith('.cjs') && name !== 'package.cjs');
-  for (const name of [...modules, 'package.json', 'extension', 'firefox', 'third-party', 'node_modules']) await fs.cp(path.join(desktop, name), path.join(resources, name), { recursive: true, verbatimSymlinks: true });
+  for (const name of [...modules, 'package.json', 'extension', 'firefox', 'third-party', 'node_modules']) await fs.cp(path.join(desktop, name), path.join(resources, name), { recursive: true, verbatimSymlinks: true, filter: source => path.basename(source) !== 'ACCEPTANCE.md' });
   for (const name of ['mdm', 'media']) await fs.cp(path.join(desktop, 'runtime', name), path.join(resources, 'runtime', name), { recursive: true, verbatimSymlinks: true });
   await fs.copyFile(node, path.join(resources, 'bin/node'));
   for (const name of ['obscura', 'obscura-worker']) await fs.copyFile(path.resolve(desktop, '../target/release', name), path.join(resources, 'bin', name));

@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Obscura AI Workspace",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Obscura local AI, browser tools and media downloads",
   "browser_specific_settings": {
     "gecko": {
@@ -32,7 +32,7 @@
     "persistent": true
   },
   "browser_action": {
-    "default_title": "打开 / 关闭 Obscura AI 侧栏",
+    "default_title": "\u6253\u5f00 / \u5173\u95ed Obscura AI \u4fa7\u680f",
     "default_icon": {
       "16": "icons/16.png",
       "32": "icons/32.png",
@@ -71,6 +71,17 @@
         "youtube-ads.js"
       ],
       "run_at": "document_end"
+    },
+    {
+      "matches": [
+        "*://x.com/*",
+        "*://twitter.com/*",
+        "*://*.youtube.com/*"
+      ],
+      "js": [
+        "media-context.js"
+      ],
+      "run_at": "document_start"
     }
   ],
   "content_security_policy": "script-src 'self'; object-src 'none'; connect-src http://127.0.0.1:* ws://127.0.0.1:*; img-src 'self' blob: data: https: http:",
@@ -103,7 +114,7 @@
         "default": "Ctrl+Shift+Y",
         "mac": "Command+Shift+Y"
       },
-      "description": "打开 / 关闭 Obscura AI 侧栏"
+      "description": "\u6253\u5f00 / \u5173\u95ed Obscura AI \u4fa7\u680f"
     }
   }
 }

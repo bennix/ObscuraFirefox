@@ -7,7 +7,7 @@ async function prepareExtension(destination, bridge = null) {
   }
   await fs.mkdir(destination, { recursive: true, mode: 0o700 });
   await fs.cp(path.join(__dirname, '../extension'), destination, { recursive: true });
-  for (const file of ['manifest.json', 'background.js', 'platform.js', 'selection.js', 'panel-bootstrap.js', 'native-api.js', 'native-schema.json', 'theme.css', 'localization.js']) await fs.copyFile(path.join(__dirname, file), path.join(destination, file));
+  for (const file of ['manifest.json', 'background.js', 'platform.js', 'selection.js', 'panel-bootstrap.js', 'native-api.js', 'native-schema.json', 'theme.css', 'localization.js', 'media-context.js', 'download-error.html', 'download-error.js']) await fs.copyFile(path.join(__dirname, file), path.join(destination, file));
   // Shared detection code uses the promise-capable API in Firefox as well.
   await fs.writeFile(path.join(destination, 'search-engines.js'), `globalThis.SEARCH_ENGINES=${JSON.stringify(require('../navigation.cjs').engines)};\n`);
   await fs.mkdir(path.join(destination, 'icons'), { recursive: true });

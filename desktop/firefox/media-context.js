@@ -9,7 +9,11 @@ document.addEventListener('contextmenu', event => {
     const video = new URL(location.href).searchParams.get('v');
     const short = location.pathname.match(/^\/(?:shorts|live|embed)\/([\w-]+)/);
     const id = video || short?.[1];
-    if (id) obscuraContextMedia = { url: `https://www.youtube.com/watch?v=${encodeURIComponent(id)}`, media: true };
+    if (id) {
+      obscuraContextMedia = { url: `https://www.youtube.com/watch?v=${encodeURIComponent(id)}`, media: true };
+      // Keep the native context menu available over YouTube's player overlay.
+      event.stopImmediatePropagation();
+    }
     return;
   }
   if (!['x.com', 'twitter.com'].includes(host)) return;

@@ -7,7 +7,7 @@ function fixture(url) {
   let contextMenu, message;
   class Element { closest() { return null; } }
   vm.runInNewContext(source, { URL, Element, location: new URL(url), document: { addEventListener: (_, callback) => { contextMenu = callback; } }, browser: { runtime: { onMessage: { addListener: callback => { message = callback; } } } } });
-  return { Element, click: async target => { contextMenu({ target }); return message({ type: 'media-context-target' }); } };
+  return { Element, click: async target => { contextMenu({ target, stopImmediatePropagation() {} }); return message({ type: 'media-context-target' }); } };
 }
 test('YouTube watch and Shorts context resolve canonical video rather than blob', async () => {
   for (const url of ['https://www.youtube.com/watch?v=abc123&t=20', 'https://www.youtube.com/shorts/abc123']) {

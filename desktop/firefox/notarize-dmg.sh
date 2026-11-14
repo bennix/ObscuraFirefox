@@ -12,7 +12,14 @@ trap 'rm -rf "$staging"' EXIT
 ln -s /Applications "$staging/Applications"
 hdiutil create -volname 'Obscura Firefox' -srcfolder "$staging" -ov -format UDZO "$dmg"
 codesign --force --timestamp --sign "$identity" "$dmg"
-xcrun notarytool submit "$dmg" --keychain-profile "$profile" --wait
+xcrun notarytool submit "$dmg" --keychain-profile "$profile" --wait --output-format json > "$staging/notary.json"
+python3 - "$staging/notary.json" <<'PY'
+import json, sys
+result = json.load(open(sys.argv[1]))
+print('Notarization:', result.get('id'), result.get('status'))
+if result.get('status') != 'Accepted':
+    raise SystemExit('Notarization was not accepted; no ticket will be stapled.')
+PY
 xcrun stapler staple "$dmg"
 xcrun stapler validate "$dmg"
 spctl --assess --type open --context context:primary-signature --verbose=2 "$dmg"

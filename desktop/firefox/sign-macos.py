@@ -29,7 +29,9 @@ with tempfile.TemporaryDirectory() as temp:
   with f.open('rb') as stream:header=stream.read(4)
   if header in magic:sign(f, f.suffix not in ['.dylib','.so','.node'])
  for f in sorted(paths,key=lambda p:len(p.parts),reverse=True):
-  if f.is_dir() and not f.is_symlink() and f.suffix in ['.app','.framework','.xpc']:sign(f, f.suffix=='.app')
+  if f.is_dir() and not f.is_symlink() and f.suffix in ['.app','.appex','.framework','.xpc']:
+   sign(f, f.suffix in ['.app','.appex','.xpc'])
+   subprocess.run(['codesign','--verify','--deep','--strict',str(f)],check=True)
  sign(root,True)
 subprocess.run(['codesign','--verify','--deep','--strict',str(root)],check=True)
 print('Developer ID signature verified')

@@ -46,3 +46,63 @@ setInterval(async () => {
     mediaEntry.textContent = `媒体嗅探 / HLS 下载 · ${result.media?.length || 0} 个资源`;
   } catch {}
 }, 2000);
+
+// Layout preferences hide presentation only; the task observer keeps running.
+const auxiliaryRegions = [
+  ['page', '.target', '当前网页', 'Current page'],
+  ['media', '#media-entry', '媒体嗅探 / HLS 下载', 'Media / HLS downloads'],
+  ['observer', '#watch', '任务观察哨', 'Task observer'],
+  ['model', '.chat-toolbar', '模型与清空按钮', 'Model and clear button']
+];
+const auxiliaryKey = 'workspaceAuxiliaryVisibility';
+const auxiliaryChinese = browser.i18n.getUILanguage().startsWith('zh');
+const auxiliaryBar = document.createElement('div');
+auxiliaryBar.id = 'auxiliary-controls';
+const auxiliaryToggle = document.createElement('button');
+auxiliaryToggle.type = 'button';
+const auxiliaryOptions = document.createElement('details');
+const auxiliarySummary = document.createElement('summary');
+auxiliarySummary.textContent = auxiliaryChinese ? '自定义显示' : 'Customize';
+auxiliaryOptions.append(auxiliarySummary);
+auxiliaryBar.append(auxiliaryToggle, auxiliaryOptions);
+document.querySelector('nav').after(auxiliaryBar);
+let auxiliaryVisible = {};
+const auxiliaryInputs = new Map();
+function renderAuxiliary() {
+  for (const [key, selector] of auxiliaryRegions) {
+    const visible = auxiliaryVisible[key] === true;
+    document.querySelector(selector).classList.toggle('workspace-hidden', !visible);
+    auxiliaryInputs.get(key).checked = visible;
+  }
+  const anyVisible = auxiliaryRegions.some(([key]) => auxiliaryVisible[key] === true);
+  auxiliaryToggle.textContent = auxiliaryChinese
+    ? (anyVisible ? '隐藏辅助区域 · 专注输出' : '显示辅助区域')
+    : (anyVisible ? 'Hide extras · Focus on output' : 'Show extra controls');
+  auxiliaryToggle.setAttribute('aria-expanded', String(anyVisible));
+}
+let auxiliaryRevision = 0;
+function saveAuxiliary() {
+  auxiliaryRevision++;
+  renderAuxiliary();
+  browser.storage.local.set({ [auxiliaryKey]: auxiliaryVisible }).catch(console.error);
+}
+for (const [key, , zh, en] of auxiliaryRegions) {
+  const label = document.createElement('label');
+  const input = document.createElement('input');
+  input.type = 'checkbox';
+  input.onchange = () => { auxiliaryVisible[key] = input.checked; saveAuxiliary(); };
+  label.append(input, document.createTextNode(auxiliaryChinese ? zh : en));
+  auxiliaryInputs.set(key, input);
+  auxiliaryOptions.append(label);
+}
+auxiliaryToggle.onclick = () => {
+  const visible = !auxiliaryRegions.some(([key]) => auxiliaryVisible[key] === true);
+  auxiliaryVisible = Object.fromEntries(auxiliaryRegions.map(([key]) => [key, visible]));
+  saveAuxiliary();
+};
+renderAuxiliary();
+browser.storage.local.get(auxiliaryKey).then(saved => {
+  if (auxiliaryRevision) return;
+  auxiliaryVisible = saved[auxiliaryKey] || {};
+  renderAuxiliary();
+}).catch(console.error);

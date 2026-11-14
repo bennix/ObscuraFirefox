@@ -14,3 +14,10 @@ html,body{width:100%;min-width:0;overflow-x:hidden}.shell{width:100%;max-width:1
 .shell>*{min-width:0;max-width:100%}nav{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));width:100%}nav button{min-width:0;white-space:normal;overflow-wrap:anywhere}
 header{flex-wrap:wrap;gap:8px}.runtime{flex-wrap:wrap}.logo small{white-space:normal}.row{flex-wrap:wrap}.row>*{min-width:0}.target strong{min-width:0}#watch-state{float:none;display:block}
 #native-downloads{width:100%;margin:8px 0}#media-entry{width:100%;margin-top:8px;text-align:left}
+.workspace-hidden{display:none!important}
+#auxiliary-controls{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;padding-top:6px;flex-shrink:0}
+#auxiliary-controls>button{font-size:11px;padding:5px 8px;text-align:left}
+#auxiliary-controls details{margin:0;padding:4px 0;border:0;font-size:11px;min-width:0}
+#auxiliary-controls summary{white-space:nowrap;color:var(--muted)}
+#auxiliary-controls label{display:flex;align-items:center;gap:6px;margin:8px 0;font-size:11px;letter-spacing:0}
+#auxiliary-controls input{width:auto;margin:0;padding:0;accent-color:var(--green)}

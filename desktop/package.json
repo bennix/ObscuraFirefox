@@ -1,0 +1,56 @@
+{
+  "name": "obscura-desktop",
+  "version": "0.2.2",
+  "private": true,
+  "description": "Local desktop interface for the Obscura browser engine",
+  "main": "native/index.html",
+  "scripts": {
+    "start": "node native/start.cjs",
+    "test": "node --test test/*.test.cjs",
+    "package": "node package.cjs",
+    "prestart": "node prepare-assets.cjs",
+    "pretest": "node prepare-assets.cjs",
+    "prepackage": "node prepare-assets.cjs"
+  },
+  "dependencies": {
+    "dompurify": "^3.4.17",
+    "katex": "^0.19.1",
+    "marked": "^18.2.0",
+    "node-fetch": "^3.3.2",
+    "pac-resolver": "^9.0.1",
+    "playwright-core": "^1.65.1",
+    "proxy-agent": "^8.0.2",
+    "quickjs-wasi": "^2.2.0",
+    "unpdf": "^2.1.0",
+    "ws": "^8.23.0"
+  },
+  "overrides": {
+    "basic-ftp": "^6.2.6"
+  },
+  "window": {
+    "title": "Obscura Desktop",
+    "width": 1440,
+    "height": 960,
+    "min_width": 1000,
+    "min_height": 700,
+    "show": true,
+    "icon": "native/icon.png"
+  },
+  "nodejs": true,
+  "permissions": [
+    "webview",
+    "proxy",
+    "cookies",
+    "contentSettings"
+  ],
+  "webview": {
+    "partitions": [
+      {
+        "name": "persist:obscura",
+        "accessible_resources": [
+          "*"
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,11 @@
+node_modules/
+dist/
+runtime/
+extension/vendor/
+
+release/
+*.dmg
+*.p12
+*.p8
+*.mobileprovision
+firefox/ACCEPTANCE.md

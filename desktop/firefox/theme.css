@@ -1,0 +1,16 @@
+:root{color-scheme:light dark;--bg:light-dark(#ffffff,#2b2a33);--panel:var(--bg);--ink:light-dark(#15141a,#fbfbfe);--line:color-mix(in srgb,var(--ink) 22%,var(--bg));--muted:color-mix(in srgb,var(--ink) 70%,var(--bg));--green:light-dark(#0060df,#00ddff);--selected-ink:light-dark(#ffffff,#15141a)}
+/* Use Firefox's current theme for every shared workspace surface. */
+button,input,textarea,select,.composer-bottom,pre,.markdown-body pre,.download-card,.message.assistant,#watch{background:var(--panel);color:var(--ink);border-color:var(--line)}
+button:hover,.message.user,.markdown-body code,.markdown-body th{background:color-mix(in srgb,var(--ink) 9%,var(--bg));color:var(--ink)}
+nav button{background:transparent}nav button.selected,.primary,#send{background:var(--green);color:var(--selected-ink)}
+#watch p,.target strong,.markdown-body blockquote{color:var(--muted)}
+.message,.markdown-body blockquote{border-color:var(--line)}
+.markdown-body pre code{background:transparent}
+.shell{padding:16px}header button{font-size:12px}.logo>span{font-size:16px;letter-spacing:2px}
+
+nav button{padding:8px 6px;font-size:12px;white-space:nowrap}nav{gap:2px}.logo small{letter-spacing:1px}
+
+html,body{width:100%;min-width:0;overflow-x:hidden}.shell{width:100%;max-width:100%;min-width:0;padding:12px!important}
+.shell>*{min-width:0;max-width:100%}nav{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));width:100%}nav button{min-width:0;white-space:normal;overflow-wrap:anywhere}
+header{flex-wrap:wrap;gap:8px}.runtime{flex-wrap:wrap}.logo small{white-space:normal}.row{flex-wrap:wrap}.row>*{min-width:0}.target strong{min-width:0}#watch-state{float:none;display:block}
+#native-downloads{width:100%;margin:8px 0}#media-entry{width:100%;margin-top:8px;text-align:left}

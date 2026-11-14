@@ -1,0 +1,109 @@
+{
+  "manifest_version": 2,
+  "name": "Obscura AI Workspace",
+  "version": "0.3.2",
+  "description": "Obscura local AI, browser tools and media downloads",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "workspace@obscura.local",
+      "strict_min_version": "140.0"
+    }
+  },
+  "permissions": [
+    "<all_urls>",
+    "tabs",
+    "storage",
+    "cookies",
+    "webRequest",
+    "proxy",
+    "webRequestBlocking",
+    "contextMenus",
+    "nativeMessaging",
+    "theme",
+    "downloads"
+  ],
+  "background": {
+    "scripts": [
+      "bridge-config.js",
+      "search-engines.js",
+      "media-sniffer.js",
+      "background.js"
+    ],
+    "persistent": true
+  },
+  "browser_action": {
+    "default_title": "打开 / 关闭 Obscura AI 侧栏",
+    "default_icon": {
+      "16": "icons/16.png",
+      "32": "icons/32.png",
+      "48": "icons/48.png",
+      "64": "icons/64.png",
+      "128": "icons/128.png"
+    },
+    "default_area": "navbar"
+  },
+  "sidebar_action": {
+    "default_title": "Obscura AI",
+    "default_panel": "panel.html",
+    "default_icon": {
+      "16": "icons/16.png",
+      "32": "icons/32.png",
+      "48": "icons/48.png",
+      "64": "icons/64.png",
+      "128": "icons/128.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "image-viewer.js"
+      ],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "*://*.youtube.com/*"
+      ],
+      "js": [
+        "youtube-ads.js"
+      ],
+      "run_at": "document_end"
+    }
+  ],
+  "content_security_policy": "script-src 'self'; object-src 'none'; connect-src http://127.0.0.1:* ws://127.0.0.1:*; img-src 'self' blob: data: https: http:",
+  "icons": {
+    "16": "icons/16.png",
+    "32": "icons/32.png",
+    "48": "icons/48.png",
+    "64": "icons/64.png",
+    "128": "icons/128.png"
+  },
+  "experiment_apis": {
+    "obscuraNative": {
+      "schema": "native-schema.json",
+      "parent": {
+        "scopes": [
+          "addon_parent"
+        ],
+        "paths": [
+          [
+            "obscuraNative"
+          ]
+        ],
+        "script": "native-api.js"
+      }
+    }
+  },
+  "commands": {
+    "_execute_sidebar_action": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+Y",
+        "mac": "Command+Shift+Y"
+      },
+      "description": "打开 / 关闭 Obscura AI 侧栏"
+    }
+  }
+}

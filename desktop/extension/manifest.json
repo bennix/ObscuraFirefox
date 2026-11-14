@@ -1,0 +1,66 @@
+{
+  "manifest_version": 3,
+  "name": "Obscura Desktop",
+  "version": "0.1.0",
+  "minimum_chrome_version": "157",
+  "description": "Local Chrome + Obscura MCP workspace with ZenMux AI",
+  "permissions": [
+    "sidePanel",
+    "tabs",
+    "storage",
+    "privacy",
+    "cookies",
+    "proxy",
+    "webRequest",
+    "webRequestAuthProvider"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "action": {
+    "default_title": "打开 Obscura AI 工作台"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "side_panel": {
+    "default_path": "panel.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "privacy.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN",
+      "all_frames": true,
+      "match_origin_as_fallback": true
+    },
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "image-viewer.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "*://*.youtube.com/*"
+      ],
+      "js": [
+        "youtube-ads.js"
+      ],
+      "run_at": "document_end",
+      "all_frames": false
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'none'; connect-src http://127.0.0.1:*; img-src 'self' blob: data: https: http:"
+  }
+}

@@ -1,0 +1,66 @@
+[
+  {
+    "namespace": "obscuraNative",
+    "functions": [
+      {
+        "name": "pressKey",
+        "type": "function",
+        "async": true,
+        "parameters": [
+          {
+            "name": "tabId",
+            "type": "integer"
+          },
+          {
+            "name": "key",
+            "type": "string"
+          }
+        ]
+      },
+      {
+        "name": "setSearchEngine",
+        "type": "function",
+        "async": true,
+        "parameters": [
+          {
+            "name": "key",
+            "type": "string"
+          }
+        ]
+      },
+      {
+        "name": "stop",
+        "type": "function",
+        "async": true,
+        "parameters": [
+          {
+            "name": "tabId",
+            "type": "integer"
+          }
+        ]
+      },
+      {
+        "name": "setPrivacyCompatibility",
+        "type": "function",
+        "async": true,
+        "parameters": [
+          {
+            "name": "enabled",
+            "type": "boolean"
+          }
+        ]
+      },
+      {
+        "name": "trackMediaDownload",
+        "type": "function",
+        "async": true,
+        "parameters": [
+          {
+            "name": "payload",
+            "type": "string"
+          }
+        ]
+      }
+    ]
+  }
+]

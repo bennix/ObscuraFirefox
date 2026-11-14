@@ -1,0 +1,33 @@
+// Obscura Firefox defaults. Applied by the source-build integration.
+// Keep WebRTC disabled even on authentication compatibility sites.
+pref("media.peerconnection.enabled", false);
+pref("media.peerconnection.ice.no_host", true);
+pref("media.peerconnection.ice.default_address_only", true);
+pref("media.peerconnection.ice.proxy_only_if_behind_proxy", true);
+pref("network.proxy.socks_remote_dns", true);
+pref("network.proxy.allow_bypass", false);
+pref("network.proxy.failover_direct", false);
+pref("network.dns.disablePrefetch", true);
+pref("network.prefetch-next", false);
+pref("network.predictor.enabled", false);
+pref("network.captive-portal-service.enabled", false);
+pref("network.connectivity-service.enabled", false);
+pref("network.http.speculative-parallel-limit", 0);
+pref("browser.urlbar.speculativeConnect.enabled", false);
+pref("privacy.trackingprotection.enabled", true);
+pref("privacy.trackingprotection.socialtracking.enabled", true);
+pref("privacy.trackingprotection.cryptomining.enabled", true);
+pref("privacy.trackingprotection.fingerprinting.enabled", true);
+pref("privacy.fingerprintingProtection", true);
+pref("privacy.resistFingerprinting", true);
+pref("privacy.resistFingerprinting.exemptedDomains", "");
+pref("network.cookie.cookieBehavior", 5);
+pref("dom.security.https_only_mode", true);
+pref("permissions.default.geo", 2);
+pref("permissions.default.camera", 2);
+pref("permissions.default.microphone", 2);
+pref("permissions.default.desktop-notification", 2);
+pref("toolkit.telemetry.enabled", false);
+pref("datareporting.healthreport.uploadEnabled", false);
+pref("datareporting.policy.dataSubmissionEnabled", false);
+pref("obscura.workspace.enabled", true);

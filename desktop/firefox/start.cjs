@@ -1,0 +1,74 @@
+const fs = require('node:fs/promises');
+const path = require('node:path');
+const os = require('node:os');
+const { spawn } = require('node:child_process');
+const { launch } = require('../app.cjs');
+const { FirefoxTools } = require('./tools.cjs');
+const { installNativeHost } = require('./install-native-host.cjs');
+
+async function start(options = {}) {
+  const binary = options.binary || process.env.OBSCURA_FIREFOX_BIN;
+  if (!binary) throw new Error('请设置 OBSCURA_FIREFOX_BIN 为已编译的 Firefox 可执行文件');
+  await fs.access(binary);
+  const directory = options.directory || path.join(os.homedir(), 'Library/Application Support/Obscura Firefox');
+  await fs.mkdir(directory, { recursive: true, mode: 0o700 });
+  if (!options.directory) {
+    const previous = path.join(os.homedir(), 'Library/Application Support/Obscura Desktop');
+    for (const name of ['settings.json', 'dictionary.json', 'bookmarks.json']) {
+      try { await fs.copyFile(path.join(previous, name), path.join(directory, name), require('node:fs').constants.COPYFILE_EXCL); }
+      catch (error) { if (!['ENOENT', 'EEXIST'].includes(error.code)) throw error; }
+    }
+  }
+  const profile = path.join(directory, 'profile');
+  await fs.mkdir(path.join(profile, 'extensions'), { recursive: true, mode: 0o700 });
+  const tools = new FirefoxTools();
+  let browserVersion = options.browserVersion;
+  if (!browserVersion) {
+    try { browserVersion = (await fs.readFile(path.join(path.dirname(binary), '../Resources/application.ini'), 'utf8')).match(/^Version=(.+)$/m)?.[1].trim(); } catch {}
+  }
+  // options.binary is Firefox here; the backend's binary option refers to the
+  // separate Rust engine and must retain its bundled default.
+  const { binary: firefoxBinary, ...backendOptions } = options;
+  const backend = await launch({ ...backendOptions, directory, extensionBridge: true, browserTools: tools, browserVersion });
+  if (!backend) return null;
+  let child;
+  try {
+    await installNativeHost(directory);
+    const config = await backend.settings.read();
+    const defaults = (await fs.readFile(path.join(__dirname, 'privacy-prefs.js'), 'utf8')).replace('pref("privacy.resistFingerprinting.exemptedDomains", "");', `pref("privacy.resistFingerprinting.exemptedDomains", ${JSON.stringify(config.authCompatibility ? 'x.com,*.x.com' : '')});`);
+    const prefs = defaults.replace(/^pref\(/gm, 'user_pref(') + '\n' + [
+      ['browser.shell.checkDefaultBrowser', false],
+      // Block external startup traffic until the extension applies a manual
+      // proxy. The local backend remains reachable for authenticated setup.
+      ['network.proxy.type', config.proxy?.mode === 'manual' ? 1 : 5],
+      ['network.proxy.http', ''],
+      ['network.proxy.ssl', ''],
+      ['network.proxy.socks', '127.0.0.1'],
+      ['network.proxy.socks_port', 9],
+      ['network.proxy.socks_version', 5],
+      ['network.proxy.no_proxies_on', 'localhost, 127.0.0.1, ::1'],
+      ['network.proxy.failover_direct', false],
+      ['browser.startup.homepage', 'https://www.google.com/'],
+      ['browser.startup.page', 1]
+    ].map(([key, value]) => `user_pref(${JSON.stringify(key)}, ${JSON.stringify(value)});`).join('\n') + '\n';
+    await fs.writeFile(path.join(profile, 'user.js'), prefs, { mode: 0o600 });
+    child = spawn(binary, ['-no-remote', '-profile', profile, options.url || 'https://www.google.com/'], { stdio: options.testing ? 'inherit' : 'ignore' });
+    await new Promise((resolve, reject) => { child.once('spawn', resolve); child.once('error', reject); });
+    child.once('exit', () => backend.close('firefox-exit').catch(() => {}));
+    return { ...backend, child, profile, close: async () => {
+      if (child.exitCode === null && child.signalCode === null) {
+        const exited = new Promise(resolve => child.once('exit', resolve));
+        child.kill('SIGTERM');
+        const timer = setTimeout(() => child.kill('SIGKILL'), 5000);
+        await exited.finally(() => clearTimeout(timer));
+      }
+      await backend.close('launcher-close');
+    } };
+  } catch (error) { child?.kill('SIGTERM'); await backend.close('launcher-failure'); throw error; }
+}
+if (require.main === module) start().then(app => {
+  if (!app) return;
+  const stop = () => app.close().catch(() => {});
+  process.once('SIGINT', stop); process.once('SIGTERM', stop);
+}).catch(error => { console.error(error.message); process.exitCode = 1; });
+module.exports = { start };

@@ -1,0 +1,5 @@
+const button=document.getElementById('language');
+let language=new URLSearchParams(location.search).get('lang')||localStorage.getItem('obscura-language')||(navigator.language.startsWith('zh')?'zh':'en');
+function render(){language=language==='zh'?'zh':'en';document.documentElement.lang=language==='zh'?'zh-CN':'en';document.querySelectorAll('[data-en]').forEach(node=>{node.innerHTML=node.dataset[language]||node.dataset.en});button.textContent=language==='zh'?'English':'中文';document.title=language==='zh'?'Obscura Firefox — 把网页变成行动。':'Obscura Firefox — Make the web yours.';localStorage.setItem('obscura-language',language)}
+button.onclick=()=>{language=language==='zh'?'en':'zh';render()};render();
+fetch('https://api.github.com/repos/bennix/ObscuraFirefox/releases/latest').then(r=>r.ok?r.json():null).then(release=>{if(!release)return;for(const asset of release.assets||[]){if(!/\.(dmg|deb|rpm|exe|msi)$/.test(asset.name))continue;const a=document.createElement('a');a.textContent=asset.name;a.href=asset.browser_download_url;document.getElementById('release-assets').append(a)}}).catch(()=>{});

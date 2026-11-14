@@ -21,3 +21,6 @@ header{flex-wrap:wrap;gap:8px}.runtime{flex-wrap:wrap}.logo small{white-space:no
 #auxiliary-controls summary{white-space:nowrap;color:var(--muted)}
 #auxiliary-controls label{display:flex;align-items:center;gap:6px;margin:8px 0;font-size:11px;letter-spacing:0}
 #auxiliary-controls input{width:auto;margin:0;padding:0;accent-color:var(--green)}
+/* Keep the workspace navigation to one compact row, even in narrow sidebars. */
+nav{display:flex;flex-wrap:nowrap;gap:2px;padding-bottom:6px;overflow-x:auto;scrollbar-width:thin}
+nav button{flex:1 0 auto;min-width:max-content;padding:5px 6px;font-size:11px;line-height:1.4;white-space:nowrap;overflow-wrap:normal}

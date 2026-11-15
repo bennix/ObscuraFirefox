@@ -1,0 +1,54 @@
+name: Publish verified desktop installers
+on:
+  workflow_dispatch:
+    inputs:
+      package_run:
+        description: Successful Firefox desktop installers run ID
+        required: true
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PACKAGE_RUN: ${{ inputs.package_run }}
+    steps:
+      - name: Verify successful package workflow
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$PACKAGE_RUN" > /tmp/package-run.json
+          python3 - <<'PY'
+          import json
+          run=json.load(open('/tmp/package-run.json'))
+          assert run['conclusion']=='success', 'Package validation must succeed before publishing'
+          assert run['path']=='.github/workflows/firefox-packages.yml'
+          assert run['head_branch']=='main'
+          PY
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: installers-*-x64
+          path: installers
+          run-id: ${{ inputs.package_run }}
+          github-token: ${{ github.token }}
+      - name: Prepare checksums and build provenance
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,pathlib,shutil
+          root=pathlib.Path('installers'); out=pathlib.Path('publish');out.mkdir()
+          run=json.load(open('/tmp/package-run.json'))
+          expected={'installers-Linux-x64':{'ObscuraFirefox-0.3.4-linux-amd64.deb','ObscuraFirefox-0.3.4-linux-x86_64.rpm'},'installers-Windows-x64':{'ObscuraFirefox-0.3.4-windows-x64-setup.exe'}}
+          assert list(root.iterdir()), 'No installer artifacts'
+          for folder in root.iterdir():
+            assert folder.name in expected, folder.name
+            files=[p for p in folder.rglob('*') if p.is_file()]
+            assert {p.name for p in files}==expected[folder.name], files
+            for file in files:
+              shutil.copy2(file,out/file.name)
+              digest=hashlib.file_digest(file.open('rb'),'sha256').hexdigest()
+              (out/(file.name+'.sha256')).write_text(digest+'  '+file.name+'\n')
+            platform='linux' if 'Linux' in folder.name else 'windows'
+            (out/f'ObscuraFirefox-0.3.4-{platform}-build.json').write_text(json.dumps({'packageCommit':run['head_sha'],'packageRun':run['html_url'],'files':sorted(expected[folder.name])},indent=2))
+          PY
+      - name: Upload verified installers
+        run: gh release upload firefox-v0.3.4 publish/* --repo "$GITHUB_REPOSITORY" --clobber

@@ -83,14 +83,20 @@ test('source-built Firefox supports native tabs, AI actions, uploads, media dete
     assert.ok(detected, 'HLS URL must be sniffed before downloading');
     const response = await fetch(app.origin + '/downloads', { method:'POST', headers:{'Content-Type':'application/json','X-Obscura-Token':app.token}, body:JSON.stringify({action:'add',args:{url:detected.url,media:true,file_name:'媒体 合并测试.mp4'}}) });
     assert.equal(response.ok,true, await response.text());
-    let found, observedActive = false;
+    let found, lastRows = [], observedActive = false;
     const end=Date.now()+45000;
     while(Date.now()<end) {
       const rows=await app.tools.request('browser_download_status');
+      lastRows=rows;
       observedActive ||= rows.some(row=>row.url===detected.url && row.state==='in_progress');
       found=rows.find(row=>row.url===url+'hls/test.m3u8' && row.state==='complete');
       if(found)break;
       await pause(500);
+    }
+    if (!found) {
+      const response = await fetch(app.origin + '/downloads', { method:'POST', headers:{'Content-Type':'application/json','X-Obscura-Token':app.token}, body:JSON.stringify({action:'list'}) });
+      const state = await response.json();
+      t.diagnostic(JSON.stringify({ native: lastRows.map(({state,error,filename})=>({state,error,filename})), media: (state.downloads || []).map(({status,error,path})=>({status,error,path})) }));
     }
     assert.ok(found,'Completed HLS must be present in native downloads');
     assert.ok(observedActive, 'Firefox must show the active download before completion');

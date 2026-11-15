@@ -92,6 +92,19 @@ $('download-form').onsubmit = event => {
 };
 $('media-refresh').onclick = () => run(refreshMedia);
 $('downloads-refresh').onclick = () => run(refreshDownloads);
+$('downloads-clear').onclick = async () => {
+  const button = $('downloads-clear');
+  button.disabled = true;
+  try {
+    const { downloads } = await downloadRequest('list');
+    const ids = downloads.filter(job => ['Complete', 'Error', 'Stopped'].includes(job.status)).map(job => job.id);
+    if (ids.length) await downloadRequest('remove', { ids });
+    await refreshDownloads();
+    status(ids.length ? '已清除任务记录，下载文件已保留' : '没有可清除的任务记录');
+  } catch (error) { status(error.message, true); }
+  finally { button.disabled = false; }
+};
+
 $('media-download-selected').onclick = () => run(async () => {
   const selected = detectedMedia.filter(media => selectedMedia.has(media.url));
   if (!selected.length) throw new Error('请先勾选要下载的媒体');

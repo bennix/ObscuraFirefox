@@ -185,9 +185,11 @@ class Downloads {
 
   async addMedia(args) {
     const job = { id: 'media-' + randomUUID(), url: args.url, file: args.file_name || 'HLS / 媒体下载', file_name: args.file_name ? path.basename(args.file_name) : undefined, format: args.format || 'bestvideo*+bestaudio/best', kind: 'media', status: 'Stopped', downloaded: 0, size: null, speed: 0, added: new Date().toISOString() };
-    this.jobs.unshift(job);
+    // Publish only after preparation: Stopped is a real pause to Firefox.
     try { await this.runMedia(job); }
-    catch (error) { job.status = 'Error'; job.error = error.message; await this.save(); throw error; }
+    catch (error) { job.status = 'Error'; job.error = error.message; this.jobs.unshift(job); await this.save(); throw error; }
+    this.jobs.unshift(job);
+    await this.save();
     return job;
   }
 

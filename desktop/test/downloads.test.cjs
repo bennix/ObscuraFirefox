@@ -104,3 +104,19 @@ test('embedded MDM file download and selected HLS fragments pause, resume and me
 test('HLS resolves system PAC routing without falling back from a selected proxy', async () => {
   assert.equal(await resolvePacRoute('function FindProxyForURL(url, host) { return "PROXY 127.0.0.1:7890; DIRECT"; }', 'https://media.example/master.m3u8'), 'http://127.0.0.1:7890');
 });
+
+
+test('media preparation is not exposed as a paused native download', async () => {
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  const manager = Object.create(Downloads.prototype);
+  manager.jobs = [];
+  manager.save = async () => {};
+  manager.runMedia = async job => { await gate; job.status = 'Downloading'; };
+  const pending = manager.addMedia({ url: 'https://example.org/test.m3u8' });
+  assert.deepEqual(manager.jobs, []);
+  release();
+  const job = await pending;
+  assert.equal(manager.jobs[0], job);
+  assert.equal(job.status, 'Downloading');
+});

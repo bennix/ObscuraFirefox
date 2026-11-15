@@ -44,3 +44,48 @@ test('AI translation, contextual lookup and persistent paginated fuzzy dictionar
     await assert.rejects(reading.lookup({ word: '' }));
   } finally { await fs.rm(directory, { recursive: true, force: true }); }
 });
+
+function translationFixture(replies) {
+  let calls = 0;
+  const reading = new Reading({ directory: os.tmpdir(), settings: {
+    read: async () => ({ model: 'fixture', baseURL: 'https://fixture.invalid', translationLanguage: '中文' }),
+    key: async () => 'fixture-key'
+  }, fetcher: async () => {
+    const content = replies[Math.min(calls++, replies.length - 1)];
+    return Response.json({ choices: [{ message: { content } }] });
+  } });
+  return { reading, calls: () => calls };
+}
+const translationInput = { segments: [{ id: 'a', text: 'Say "hello".' }, { id: 'b', text: 'Next line.' }] };
+const validTranslation = JSON.stringify({ translations: [{ id: 'a', text: '说“你好”。' }, { id: 'b', text: '下一行。' }] });
+test('translation regenerates malformed JSON without exposing partial output', async () => {
+  const fixture = translationFixture(['{"translations":[{"id":"a","text":"say "hello""}]}', validTranslation]);
+  const result = await fixture.reading.translate(translationInput);
+  assert.equal(result.translations.length, 2);
+  assert.equal(result.translations[0].text, '说“你好”。');
+  assert.equal(fixture.calls(), 2);
+});
+test('translation retries null, missing and duplicate paragraph responses', async () => {
+  for (const content of ['null', '{"translations":[]}', JSON.stringify({ translations: [{ id: 'a', text: 'one' }, { id: 'a', text: 'duplicate' }] })]) {
+    const fixture = translationFixture([content, validTranslation]);
+    assert.equal((await fixture.reading.translate(translationInput)).translations[1].id, 'b');
+    assert.equal(fixture.calls(), 2);
+  }
+});
+test('persistent malformed output stops at three responses with a friendly error', async () => {
+  const fixture = translationFixture(['{"translations":']);
+  await assert.rejects(fixture.reading.translate(translationInput), error => /自动重试/.test(error.message) && !/JSON at position|Unexpected/.test(error.message));
+  assert.equal(fixture.calls(), 3);
+});
+test('translation accepts whitespace around fenced JSON and rejects duplicate input IDs', async () => {
+  const fixture = translationFixture([' \n```json\n' + validTranslation + '\n```\n ']);
+  assert.equal((await fixture.reading.translate(translationInput)).translations.length, 2);
+  await assert.rejects(fixture.reading.translate({ segments: [{ id: 'a', text: 'one' }, { id: 'a', text: 'two' }] }), /ID/);
+  assert.equal(fixture.calls(), 1);
+});
+test('cancelled translation never sends a request', async () => {
+  const fixture = translationFixture([validTranslation]);
+  const controller = new AbortController(); controller.abort(new Error('fixture cancelled'));
+  await assert.rejects(fixture.reading.translate(translationInput, controller.signal), /cancelled/);
+  assert.equal(fixture.calls(), 0);
+});

@@ -75,7 +75,7 @@ async function applySource(source) {
   const anchor = '      resolveProviderReady(Promise.all(this.startupPromises));';
   if (!providerText.includes('"workspace@obscura.local"')) {
     if (!providerText.includes(anchor)) throw new Error('Firefox addon startup location changed');
-    providerText = providerText.replace(anchor, '      if (Services.prefs.getBoolPref("obscura.workspace.enabled", false)) {\n        const workspaceDirectory = Services.dirsvc.get("GreD", Ci.nsIFile);\n        workspaceDirectory.append("browser");\n        workspaceDirectory.append("obscura-workspace");\n        Services.io.getProtocolHandler("resource").QueryInterface(Ci.nsIResProtocolHandler)\n          .setSubstitution("obscura-workspace", Services.io.newFileURI(workspaceDirectory));\n        this.maybeInstallBuiltinAddon("workspace@obscura.local", "0.3.3", "resource://obscura-workspace/");\n      }\n\n' + anchor);
+    providerText = providerText.replace(anchor, '      if (Services.prefs.getBoolPref("obscura.workspace.enabled", false)) {\n        const workspaceDirectory = Services.dirsvc.get("GreD", Ci.nsIFile);\n        workspaceDirectory.append("browser");\n        workspaceDirectory.append("obscura-workspace");\n        Services.io.getProtocolHandler("resource").QueryInterface(Ci.nsIResProtocolHandler)\n          .setSubstitution("obscura-workspace", Services.io.newFileURI(workspaceDirectory));\n        this.maybeInstallBuiltinAddon("workspace@obscura.local", "0.3.4", "resource://obscura-workspace/");\n      }\n\n' + anchor);
     await fs.writeFile(provider, providerText);
   }
   const packageManifest = path.join(source, 'browser/installer/package-manifest.in');

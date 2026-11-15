@@ -103,7 +103,7 @@ test('native key adapter focuses only the requested web tab and maps modifiers',
   let dispatched;
   const win = { document: { hasFocus: () => true }, gBrowser: {}, focus() {}, setTimeout, clearTimeout, windowUtils: { sendNativeKeyEvent(...args) { dispatched = args.slice(0, 5); args[5](); } } };
   const tab = { documentGlobal: win, linkedBrowser: { currentURI: { scheme: 'https' }, focus() {} } };
-  const sandbox = { Cc: { '@mozilla.org/widget/macdocksupport;1': { getService: () => ({ activateApplication() {} }) } }, Ci: { nsIMacDockSupport: {} }, ChromeUtils: { importESModule: () => ({ ExtensionError: Error, ExtensionCommon: { ExtensionAPI: class {} } }) } };
+  const sandbox = { Cu: { importGlobalProperties() {} }, Services: { prefs: { getBoolPref: () => true } }, Cc: { '@mozilla.org/widget/macdocksupport;1': { getService: () => ({ activateApplication() {} }) } }, Ci: { nsIMacDockSupport: {} }, ChromeUtils: { importESModule: () => ({ ExtensionError: Error, ExtensionCommon: { ExtensionAPI: class {} } }) } };
   vm.runInNewContext(fs.readFileSync(require('node:path').join(__dirname, '../firefox/native-api.js'), 'utf8'), sandbox);
   const api = new sandbox.obscuraNative().getAPI({ extension: { tabManager: { get: id => { assert.equal(id, 7); return { nativeTab: tab }; } } } }).obscuraNative;
   await api.pressKey(7, 'Meta+a');

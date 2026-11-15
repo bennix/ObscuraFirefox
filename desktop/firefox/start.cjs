@@ -33,6 +33,18 @@ async function start(options = {}) {
   if (!backend) return null;
   let child;
   try {
+    // Same Firefox engine build, newer built-in workspace: discard only startup
+    // caches so upgrades load the new extension instead of cached resources.
+    const workspaceVersion = JSON.parse(await fs.readFile(path.join(__dirname, 'manifest.json'), 'utf8')).version;
+    const versionFile = path.join(directory, 'workspace-version');
+    let previousWorkspaceVersion = '';
+    try { previousWorkspaceVersion = await fs.readFile(versionFile, 'utf8'); }
+    catch (error) { if (error.code !== 'ENOENT') throw error; }
+    if (previousWorkspaceVersion !== workspaceVersion) {
+      await fs.rm(path.join(profile, 'startupCache'), { recursive: true, force: true });
+      await fs.rm(path.join(profile, 'addonStartup.json.lz4'), { force: true });
+      await fs.writeFile(versionFile, workspaceVersion, { mode: 0o600 });
+    }
     await installNativeHost(directory);
     const config = await backend.settings.read();
     const defaults = (await fs.readFile(path.join(__dirname, 'privacy-prefs.js'), 'utf8')).replace('pref("privacy.resistFingerprinting.exemptedDomains", "");', `pref("privacy.resistFingerprinting.exemptedDomains", ${JSON.stringify(config.authCompatibility ? 'x.com,*.x.com' : '')});`);

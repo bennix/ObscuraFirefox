@@ -1,0 +1,25 @@
+name: Portable runtime checks
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26.13.1'
+      - uses: ilammy/msvc-dev-cmd@v1
+      - shell: cmd
+        run: |
+          cl /O2 /W4 /DNATIVE_HOST desktop\firefox\windows-launcher.c /Fe:host.exe
+          if errorlevel 1 exit /b 1
+          cl /O2 /W4 desktop\firefox\windows-launcher.c /Fe:launcher.exe /link /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup
+          if errorlevel 1 exit /b 1
+      - shell: pwsh
+        run: |
+          $env:OBSCURA_HOST_WRAPPER="$env:GITHUB_WORKSPACE\host.exe"
+          node --test desktop/test/portable-host.test.cjs
+          if ($LASTEXITCODE -ne 0) { throw 'Portable host tests failed' }

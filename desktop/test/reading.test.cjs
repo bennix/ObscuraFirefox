@@ -72,10 +72,10 @@ test('translation retries null, missing and duplicate paragraph responses', asyn
     assert.equal(fixture.calls(), 2);
   }
 });
-test('persistent malformed output stops at three responses with a friendly error', async () => {
+test('persistent malformed output stops after bounded fallback with a friendly error', async () => {
   const fixture = translationFixture(['{"translations":']);
-  await assert.rejects(fixture.reading.translate(translationInput), error => /自动重试/.test(error.message) && !/JSON at position|Unexpected/.test(error.message));
-  assert.equal(fixture.calls(), 3);
+  await assert.rejects(fixture.reading.translate(translationInput), error => /单段翻译/.test(error.message) && !/JSON at position|Unexpected/.test(error.message));
+  assert.equal(fixture.calls(), 4);
 });
 test('translation accepts whitespace around fenced JSON and rejects duplicate input IDs', async () => {
   const fixture = translationFixture([' \n```json\n' + validTranslation + '\n```\n ']);
@@ -88,4 +88,18 @@ test('cancelled translation never sends a request', async () => {
   const controller = new AbortController(); controller.abort(new Error('fixture cancelled'));
   await assert.rejects(fixture.reading.translate(translationInput, controller.signal), /cancelled/);
   assert.equal(fixture.calls(), 0);
+});
+test('translation falls back to plain text per segment after JSON failures', async () => {
+  const fixture = translationFixture(['invalid', 'invalid', 'invalid', '说 "你好"。\n第二行', '下一段。']);
+  const result = await fixture.reading.translate(translationInput);
+  assert.deepEqual(result.translations, [
+    { id: 'a', original: translationInput.segments[0].text, text: '说 "你好"。\n第二行' },
+    { id: 'b', original: translationInput.segments[1].text, text: '下一段。' }
+  ]);
+  assert.equal(fixture.calls(), 5);
+});
+test('plain-text fallback does not return a partial batch on empty later output', async () => {
+  const fixture = translationFixture(['invalid', 'invalid', 'invalid', '第一段', '']);
+  await assert.rejects(fixture.reading.translate(translationInput), /单段翻译/);
+  assert.equal(fixture.calls(), 5);
 });

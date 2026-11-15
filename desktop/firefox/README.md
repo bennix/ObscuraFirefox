@@ -36,8 +36,36 @@ tab management, media listing and user-attachment upload. Upload accepts existin
 attachment IDs rather than unrestricted filesystem paths.
 
 The existing ZenMux backend handles AI streaming, task observation, cancellation,
-Markdown/LaTeX, attachments, translation and dictionary storage. API keys remain
-in Keychain. Download services retain MDM, HLS and media request context.
+Markdown/LaTeX, attachments, translation and dictionary storage. API keys use
+macOS Keychain, Windows DPAPI for the current user, or Linux Secret Service.
+Download services retain MDM, HLS and media request context.
+
+## Windows and Linux installers
+
+`Firefox native source builds` builds the pinned Firefox revision on Windows
+and Ubuntu runners. Successful builds trigger `Firefox desktop installers`.
+The installer workflow can also be started manually with a successful source
+run ID. It overlays the current workspace code and bundles platform-matched
+Node, MDM, yt-dlp and FFmpeg before running the browser tests.
+
+Windows produces an x64 Inno Setup EXE; Linux produces an amd64 DEB and an
+x86_64 RPM. Windows installers are currently unsigned. Linux builds use
+Ubuntu 24.04; compatibility with older glibc distributions is not established.
+Linux credentials require a running Secret Service, such as GNOME Keyring.
+
+FFmpeg is bundled with its codec libraries rather than relying on the system
+FFmpeg installation. Linux packaging rejects a binary linked to system
+libavcodec/libavformat libraries. Downloads run in the local native backend,
+outside web content, through authenticated local IPC. Windows subprocesses
+use hidden windows and argument arrays rather than shell command strings.
+
+Release tests run the package from a directory containing Chinese characters
+and spaces. They sniff a local HLS stream, observe its active entry in Firefox
+downloads, merge it to a Chinese filename and decode the resulting video to
+verify its duration. Sandbox-disable environment variables are rejected;
+setting `MOZ_DISABLE_CONTENT_SANDBOX=0` also disables Firefox's Linux sandbox
+and must not be used. These native CI tests do not replace broader testing on
+physical Windows machines and additional Linux distributions.
 
 References reviewed:
 - https://github.com/mozilla/firefox-devtools-mcp

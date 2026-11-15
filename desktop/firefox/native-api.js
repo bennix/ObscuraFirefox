@@ -27,7 +27,7 @@ this.obscuraNative = class extends ExtensionCommon.ExtensionAPI {
           if (!response.ok) throw new Error('Media download service unavailable');
           return response.json();
         }
-        const download = await Downloads.createDownload({ source: { url: job.url }, target: job.path || folder + '/' + job.id + '/media.mp4' });
+        const download = await Downloads.createDownload({ source: { url: job.url }, target: job.path || PathUtils.join(folder, job.id, 'media.mp4') });
         const saver = Object.create(DownloadSaver.prototype);
         Object.assign(saver, {
           download, canceled: false, first: true,

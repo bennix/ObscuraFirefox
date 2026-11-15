@@ -32,6 +32,10 @@ def extract(archive, destination):
   with tarfile.open(archive) as t:t.extractall(destination,filter='data')
 
 engine=pathlib.Path(a.engine).resolve(); temp=cache/'engine-extracted'
+provenance.append({'file':engine.name,'sha256':hashlib.sha256(engine.read_bytes()).hexdigest(),
+ 'engineWorkflowRun':os.environ.get('OBSCURA_ENGINE_RUN'),
+ 'workspaceCommit':subprocess.check_output(['git','rev-parse','HEAD'],cwd=repo,text=True).strip(),
+ 'packageWorkflowRun':os.environ.get('GITHUB_RUN_ID')})
 if temp.exists():shutil.rmtree(temp)
 extract(engine,temp)
 root=next(f.parent for f in temp.rglob('firefox'+suffix) if f.is_file())

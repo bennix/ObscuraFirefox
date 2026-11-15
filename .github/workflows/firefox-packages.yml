@@ -39,6 +39,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          OBSCURA_ENGINE_RUN: ${{ inputs.source_run || github.event.workflow_run.id }}
         run: |
           npm ci --prefix desktop
           node desktop/prepare-assets.cjs

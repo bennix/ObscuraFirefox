@@ -60,19 +60,21 @@ test('source-built Firefox supports native tabs, AI actions, uploads, media dete
     await visit(app.child.pid);
     const parentStatus = await fs.readFile(`/proc/${app.child.pid}/status`, 'utf8');
     const namespaceDepth = status => status.match(/^NSpid:\s+(.+)$/m)?.[1].trim().split(/\s+/).length || 0;
-    let checked = 0;
+    let checked = 0; const observed = [];
     for (const pid of children) {
       let args;
       try { args = (await fs.readFile(`/proc/${pid}/cmdline`, 'utf8')).split('\0'); }
       catch (error) { if (error.code === 'ENOENT') continue; throw error; }
-      if (!args.includes('-isForBrowser')) continue;
+      const name = (await fs.readFile(`/proc/${pid}/comm`, 'utf8')).trim();
+      observed.push({pid, name});
+      if (!args.includes('-isForBrowser') && name !== 'Web Content' && !name.startsWith('Isolated Web')) continue;
       const status = await fs.readFile(`/proc/${pid}/status`, 'utf8');
       assert.match(status, /^Seccomp:\s+2$/m);
       assert.match(status, /^NoNewPrivs:\s+1$/m);
       assert.ok(namespaceDepth(status) > namespaceDepth(parentStatus), 'Web content must run in a nested PID namespace');
       checked++;
     }
-    assert.ok(checked > 0, 'At least one actual web content process must be checked');
+    assert.ok(checked > 0, 'At least one actual web content process must be checked: '+JSON.stringify(observed));
   });
   await app.tools.call('browser_fill', { selector: '#name', value: 'Obscura' });
   assert.ok(value(await app.tools.call('browser_snapshot')).controls.some(control => control.value === 'Obscura'));

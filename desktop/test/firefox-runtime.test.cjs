@@ -67,10 +67,19 @@ test('source-built Firefox supports native tabs, AI actions, uploads, media dete
       const name = (await fs.readFile(`/proc/${pid}/comm`, 'utf8')).trim();
       observed.push({pid, name});
       if (!args.includes('-isForBrowser') && name !== 'Web Content' && !name.startsWith('Isolated Web')) continue;
-      const status = await fs.readFile(`/proc/${pid}/status`, 'utf8');
+      // Newly spawned spare content processes may still be initializing their sandbox.
+      // Require every observed process to become isolated within a bounded deadline.
+      let status, userMap;
+      const sandboxDeadline = Date.now() + 10000;
+      do {
+        status = await fs.readFile(`/proc/${pid}/status`, 'utf8');
+        userMap = await fs.readFile(`/proc/${pid}/uid_map`, 'utf8');
+        if (/^Seccomp:\s+2$/m.test(status) && /^NoNewPrivs:\s+1$/m.test(status) && userMap !== parentUserMap) break;
+        await pause(100);
+      } while (Date.now() < sandboxDeadline);
       assert.match(status, /^Seccomp:\s+2$/m);
       assert.match(status, /^NoNewPrivs:\s+1$/m);
-      assert.notEqual(await fs.readFile(`/proc/${pid}/uid_map`, 'utf8'), parentUserMap, 'Web content must run in an isolated user namespace');
+      assert.notEqual(userMap, parentUserMap, 'Web content must run in an isolated user namespace');
       checked++;
     }
     assert.ok(checked > 0, 'At least one actual web content process must be checked: '+JSON.stringify(observed));

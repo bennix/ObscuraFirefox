@@ -40,13 +40,22 @@ test('source-built Firefox supports native tabs, AI actions, uploads, media dete
   const deadline = Date.now() + 60000;
   while (!app.tools.browserClient.open && Date.now() < deadline) await pause(250);
   assert.equal(app.tools.browserClient.open, true, 'Built-in workspace must connect without debugging flags');
+  await app.tools.call('browser_navigate', { url });
+  app.tools.currentPage = await app.tools.page();
+  const snapshot = value(await app.tools.call('browser_snapshot'));
+  assert.equal(snapshot.title, 'Obscura Firefox fixture');
   if (process.platform === 'linux') await t.test('Linux web content has seccomp and PID namespace isolation', async () => {
     const children = [];
     async function visit(pid) {
-      let descendants;
-      try { descendants = (await fs.readFile(`/proc/${pid}/task/${pid}/children`, 'utf8')).trim().split(/\s+/).filter(Boolean); }
+      let threads;
+      try { threads = await fs.readdir(`/proc/${pid}/task`); }
       catch (error) { if (error.code === 'ENOENT') return; throw error; }
-      for (const child of descendants) { children.push(child); await visit(child); }
+      for (const thread of threads) {
+        let descendants;
+        try { descendants = (await fs.readFile(`/proc/${pid}/task/${thread}/children`, 'utf8')).trim().split(/\s+/).filter(Boolean); }
+        catch (error) { if (error.code === 'ENOENT') continue; throw error; }
+        for (const child of descendants) if (!children.includes(child)) { children.push(child); await visit(child); }
+      }
     }
     await visit(app.child.pid);
     const parentStatus = await fs.readFile(`/proc/${app.child.pid}/status`, 'utf8');
@@ -65,10 +74,6 @@ test('source-built Firefox supports native tabs, AI actions, uploads, media dete
     }
     assert.ok(checked > 0, 'At least one actual web content process must be checked');
   });
-  await app.tools.call('browser_navigate', { url });
-  app.tools.currentPage = await app.tools.page();
-  const snapshot = value(await app.tools.call('browser_snapshot'));
-  assert.equal(snapshot.title, 'Obscura Firefox fixture');
   await app.tools.call('browser_fill', { selector: '#name', value: 'Obscura' });
   assert.ok(value(await app.tools.call('browser_snapshot')).controls.some(control => control.value === 'Obscura'));
   await t.test('HLS completion appears in Firefox native downloads with the merged file', async () => {

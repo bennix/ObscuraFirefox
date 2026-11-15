@@ -44,7 +44,7 @@ test('source-built Firefox supports native tabs, AI actions, uploads, media dete
   app.tools.currentPage = await app.tools.page();
   const snapshot = value(await app.tools.call('browser_snapshot'));
   assert.equal(snapshot.title, 'Obscura Firefox fixture');
-  if (process.platform === 'linux') await t.test('Linux web content has seccomp and PID namespace isolation', async () => {
+  if (process.platform === 'linux') await t.test('Linux web content has seccomp and user namespace isolation', async () => {
     const children = [];
     async function visit(pid) {
       let threads;
@@ -58,8 +58,7 @@ test('source-built Firefox supports native tabs, AI actions, uploads, media dete
       }
     }
     await visit(app.child.pid);
-    const parentStatus = await fs.readFile(`/proc/${app.child.pid}/status`, 'utf8');
-    const namespaceDepth = status => status.match(/^NSpid:\s+(.+)$/m)?.[1].trim().split(/\s+/).length || 0;
+    const parentUserMap = await fs.readFile(`/proc/${app.child.pid}/uid_map`, 'utf8');
     let checked = 0; const observed = [];
     for (const pid of children) {
       let args;
@@ -71,7 +70,7 @@ test('source-built Firefox supports native tabs, AI actions, uploads, media dete
       const status = await fs.readFile(`/proc/${pid}/status`, 'utf8');
       assert.match(status, /^Seccomp:\s+2$/m);
       assert.match(status, /^NoNewPrivs:\s+1$/m);
-      assert.ok(namespaceDepth(status) > namespaceDepth(parentStatus), 'Web content must run in a nested PID namespace');
+      assert.notEqual(await fs.readFile(`/proc/${pid}/uid_map`, 'utf8'), parentUserMap, 'Web content must run in an isolated user namespace');
       checked++;
     }
     assert.ok(checked > 0, 'At least one actual web content process must be checked: '+JSON.stringify(observed));

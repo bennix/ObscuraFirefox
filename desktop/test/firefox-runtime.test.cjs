@@ -40,6 +40,31 @@ test('source-built Firefox supports native tabs, AI actions, uploads, media dete
   const deadline = Date.now() + 60000;
   while (!app.tools.browserClient.open && Date.now() < deadline) await pause(250);
   assert.equal(app.tools.browserClient.open, true, 'Built-in workspace must connect without debugging flags');
+  if (process.platform === 'linux') await t.test('Linux web content has seccomp and PID namespace isolation', async () => {
+    const children = [];
+    async function visit(pid) {
+      let descendants;
+      try { descendants = (await fs.readFile(`/proc/${pid}/task/${pid}/children`, 'utf8')).trim().split(/\s+/).filter(Boolean); }
+      catch (error) { if (error.code === 'ENOENT') return; throw error; }
+      for (const child of descendants) { children.push(child); await visit(child); }
+    }
+    await visit(app.child.pid);
+    const parentStatus = await fs.readFile(`/proc/${app.child.pid}/status`, 'utf8');
+    const namespaceDepth = status => status.match(/^NSpid:\s+(.+)$/m)?.[1].trim().split(/\s+/).length || 0;
+    let checked = 0;
+    for (const pid of children) {
+      let args;
+      try { args = (await fs.readFile(`/proc/${pid}/cmdline`, 'utf8')).split('\0'); }
+      catch (error) { if (error.code === 'ENOENT') continue; throw error; }
+      if (!args.includes('-isForBrowser')) continue;
+      const status = await fs.readFile(`/proc/${pid}/status`, 'utf8');
+      assert.match(status, /^Seccomp:\s+2$/m);
+      assert.match(status, /^NoNewPrivs:\s+1$/m);
+      assert.ok(namespaceDepth(status) > namespaceDepth(parentStatus), 'Web content must run in a nested PID namespace');
+      checked++;
+    }
+    assert.ok(checked > 0, 'At least one actual web content process must be checked');
+  });
   await app.tools.call('browser_navigate', { url });
   app.tools.currentPage = await app.tools.page();
   const snapshot = value(await app.tools.call('browser_snapshot'));

@@ -6,7 +6,7 @@ const execute = promisify(execFile);
 const { engines } = require('./navigation.cjs');
 const defaults = ['anthropic/claude-sonnet-4.6', 'z-ai/glm-5v-turbo', 'openai/gpt-5.4'];
 class Settings {
-  constructor(directory, keychain = execute) {
+  constructor(directory, keychain = require('./secure-store.cjs').secureStore) {
     this.file = path.join(directory, 'settings.json'); this.keychain = keychain;
     this.service = 'ai.obscura.desktop.zenmux'; this.account = 'zenmux-api-key';
   }

@@ -19,6 +19,7 @@ async function prepareExtension(destination, bridge = null) {
   let html = await fs.readFile(path.join(destination, 'panel.html'), 'utf8');
   html = html.replace('开启后，放宽 X 官网及其子域的 COOP 跨窗口隔离以支持登录回传。非代理 UDP 仍受限。保存后重启应用生效。', 'Firefox 使用原生登录流程。开启后仅为 X 站点放宽抗指纹设置；Claude 等其他站点保持严格保护，WebRTC 始终禁用。切换后重新加载 X 生效。')
     .replace('<li>限制非代理 UDP</li><li>隐藏 WebGL 显卡型号</li><li>禁用离线音频指纹接口</li>', '<li>源码默认禁用 WebRTC</li><li>Firefox 跟踪与指纹保护</li><li>分区 Cookie 与敏感权限限制</li>');
+  html = html.replace('API Key 保存于 macOS 钥匙串，界面隐藏真实内容。', 'API Key 由系统凭据存储保护，界面隐藏真实内容。').replace('代理凭据保存在系统钥匙串', '代理凭据保存在系统凭据存储');
   html = html.replace('</head>', '<link rel="stylesheet" href="theme.css"></head>').replace('Chrome 157 · Stable', 'Firefox · Obscura').replace('验证时暂停保护', 'WebRTC 已禁用').replace('当前 Chrome 页面', '当前 Firefox 页面').replace('跟随系统</option>', '跟随 Firefox / 系统</option>');
   html = html.replace('</body>', '<script src="selection.js"></script></body>');
   if (!bridge) html = html.replace(/<script src="bridge-config.js"><\/script>[\s\S]*?<\/body>/, '<script src="panel-bootstrap.js"></script></body>');

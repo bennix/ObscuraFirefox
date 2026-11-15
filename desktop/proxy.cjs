@@ -28,7 +28,7 @@ function parseSystemProxy(text, target) {
 }
 
 class ProxyTransport {
-  constructor(settings, { readSystemProxy = async () => (await execute('/usr/sbin/scutil', ['--proxy'], { timeout: 3000 })).stdout } = {}) {
+  constructor(settings, { readSystemProxy = require('./system-proxy.cjs').readNativeSystemProxy } = {}) {
     this.settings = settings;
     this.readSystemProxy = readSystemProxy;
     this.cachedAt = 0;
@@ -42,6 +42,7 @@ class ProxyTransport {
       if (!proxy) throw new Error('手动代理尚未配置，请在设置中保存代理地址');
       return proxy.replace(/^socks5:/, 'socks5h:');
     }
+    if (process.platform !== 'darwin' && ['HTTP_PROXY','HTTPS_PROXY','ALL_PROXY','http_proxy','https_proxy','all_proxy'].some(key => process.env[key])) return require('proxy-from-env').getProxyForUrl(url);
     if (Date.now() - this.cachedAt > 3000) {
       this.system = await this.readSystemProxy();
       this.cachedAt = Date.now();

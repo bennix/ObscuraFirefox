@@ -9,3 +9,5 @@ release/
 *.p8
 *.mobileprovision
 firefox/ACCEPTANCE.md
+
+firefox/__pycache__/

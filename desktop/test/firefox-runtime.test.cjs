@@ -12,12 +12,12 @@ const value = result => JSON.parse(result.content[0].text);
 
 test('source-built Firefox supports native tabs, AI actions, uploads, media detection and WebRTC protection', { skip: !process.env.OBSCURA_FIREFOX_BIN, timeout: 150000 }, async t => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'obscura-firefox-runtime-'));
-  const nativeManifest = path.join(os.homedir(), 'Library/Application Support/Mozilla/NativeMessagingHosts/ai.obscura.workspace.json');
+  const nativeManifest = (process.platform === 'darwin' ? path.join(os.homedir(), 'Library/Application Support/Mozilla/NativeMessagingHosts/ai.obscura.workspace.json') : process.platform === 'win32' ? path.join(directory, 'NativeMessagingHosts/ai.obscura.workspace.json') : path.join(os.homedir(), '.mozilla/native-messaging-hosts/ai.obscura.workspace.json'));
   let previousManifest;
   try { previousManifest = await fs.readFile(nativeManifest); } catch (error) { if (error.code !== 'ENOENT') throw error; }
   let app;
   const hls = path.join(directory, 'hls'); await fs.mkdir(hls);
-  execFileSync(path.join(backendRoot, 'runtime/media/ffmpeg'), ['-y','-f','lavfi','-i','testsrc2=size=160x90:rate=10','-t','4','-c:v','libx264','-force_key_frames','expr:gte(t,n_forced*1)','-hls_time','1','-hls_playlist_type','vod','-hls_segment_filename',path.join(hls,'part%03d.ts'),path.join(hls,'test.m3u8')], { stdio:'ignore' });
+  execFileSync(path.join(backendRoot, 'runtime/media', process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg'), ['-y','-f','lavfi','-i','testsrc2=size=160x90:rate=10','-t','4','-c:v','libx264','-force_key_frames','expr:gte(t,n_forced*1)','-hls_time','1','-hls_playlist_type','vod','-hls_segment_filename',path.join(hls,'part%03d.ts'),path.join(hls,'test.m3u8')], { stdio:'ignore' });
   const server = http.createServer((req, res) => {
     if (req.url.startsWith('/hls/')) { const file = path.join(hls, path.basename(req.url)); res.setHeader('Content-Type', file.endsWith('.m3u8') ? 'application/vnd.apple.mpegurl' : 'video/mp2t'); res.end(require('node:fs').readFileSync(file)); return; }
     if (req.url === '/frame') { res.setHeader('Content-Type', 'text/html'); res.end(`<script>parent.postMessage({probe:'cross',rtc:typeof RTCPeerConnection},'*')</script>`); return; }

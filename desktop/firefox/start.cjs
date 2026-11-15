@@ -10,9 +10,9 @@ async function start(options = {}) {
   const binary = options.binary || process.env.OBSCURA_FIREFOX_BIN;
   if (!binary) throw new Error('请设置 OBSCURA_FIREFOX_BIN 为已编译的 Firefox 可执行文件');
   await fs.access(binary);
-  const directory = options.directory || path.join(os.homedir(), 'Library/Application Support/Obscura Firefox');
+  const directory = options.directory || (process.platform === 'darwin' ? path.join(os.homedir(), 'Library/Application Support/Obscura Firefox') : process.platform === 'win32' ? path.join(process.env.APPDATA || os.homedir(), 'Obscura Firefox') : path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), 'obscura-firefox'));
   await fs.mkdir(directory, { recursive: true, mode: 0o700 });
-  if (!options.directory) {
+  if (!options.directory && process.platform === 'darwin') {
     const previous = path.join(os.homedir(), 'Library/Application Support/Obscura Desktop');
     for (const name of ['settings.json', 'dictionary.json', 'bookmarks.json']) {
       try { await fs.copyFile(path.join(previous, name), path.join(directory, name), require('node:fs').constants.COPYFILE_EXCL); }

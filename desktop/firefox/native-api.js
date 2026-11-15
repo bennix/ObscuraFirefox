@@ -15,7 +15,7 @@ this.obscuraNative = class extends ExtensionCommon.ExtensionAPI {
       async trackMediaDownload(payload) {
         try {
         const { job, folder, bridge } = JSON.parse(payload);
-        if (!/^media-[a-z0-9-]+$/.test(job.id) || !/^https?:/.test(job.url) || !folder.startsWith('/')) throw new ExtensionError('Invalid media task');
+        if (!/^media-[a-z0-9-]+$/.test(job.id) || !/^https?:/.test(job.url) || !(/^(?:\/|[A-Za-z]:[\\/])/.test(folder))) throw new ExtensionError('Invalid media task');
         const origin = new URL(bridge.origin);
         if (origin.protocol !== 'http:' || origin.hostname !== '127.0.0.1') throw new ExtensionError('Invalid local bridge');
         if (mediaDownloads.has(job.id)) return;
@@ -41,7 +41,7 @@ this.obscuraNative = class extends ExtensionCommon.ExtensionAPI {
               if (!current) throw new Error('Media task removed');
               progress(current.downloaded || 0, current.size || -1, true);
               if (current.status === 'Complete') {
-                if (!current.path?.startsWith(folder + '/')) throw new Error('Invalid media output path');
+                if (!current.path?.replaceAll('\\', '/').startsWith(folder.replaceAll('\\', '/') + '/')) throw new Error('Invalid media output path');
                 download.target.path = current.path;
                 return;
               }
@@ -89,6 +89,26 @@ this.obscuraNative = class extends ExtensionCommon.ExtensionAPI {
         const native = tab.nativeTab;
         if (!['http', 'https'].includes(native.linkedBrowser.currentURI.scheme)) throw new Error('Only HTTP/HTTPS tabs support native input');
         const window = native.documentGlobal;
+        if (Services.appinfo && Services.appinfo.OS !== 'Darwin') {
+          window.gBrowser.selectedTab = native;
+          window.focus(); native.linkedBrowser.focus();
+          const tip = Cc['@mozilla.org/text-input-processor;1'].createInstance(Ci.nsITextInputProcessor);
+          if (!tip.beginInputTransactionForTests(window)) throw new Error('Keyboard input is busy');
+          const parts = key.split('+'); const name = parts.pop();
+          const aliases = { Ctrl: 'Control', ControlOrMeta: 'Control', Cmd: 'Meta', Command: 'Meta', Option: 'Alt' };
+          const modifiers = parts.map(part => aliases[part] || part);
+          if (modifiers.some(part => !['Shift', 'Control', 'Alt', 'Meta'].includes(part))) throw new Error('Unsupported key modifier');
+          const keyName = name === 'Space' ? ' ' : name;
+          const special = { Enter:13, Tab:9, Escape:27, Backspace:8, Delete:46, Home:36, End:35, PageUp:33, PageDown:34, ArrowLeft:37, ArrowUp:38, ArrowRight:39, ArrowDown:40 };
+          if (keyName.length !== 1 && !special[keyName]) throw new Error('Unsupported keyboard key');
+          const event = (type, value) => new window.KeyboardEvent(type, { key: value, keyCode: special[value] || (value.length === 1 ? value.toUpperCase().charCodeAt(0) : 0) });
+          const pressed = [];
+          try {
+            for (const modifier of modifiers) { tip.keydown(event('keydown', modifier)); pressed.push(modifier); }
+            tip.keydown(event('keydown', keyName)); tip.keyup(event('keyup', keyName));
+          } finally { for (const modifier of pressed.reverse()) tip.keyup(event('keyup', modifier)); }
+          return 'Key pressed';
+        }
         const parts = key.split('+');
         const name = parts.pop();
         const modifiers = { Shift: 0x100, Control: 0x400, Ctrl: 0x400, Alt: 0x1000, Option: 0x1000, Meta: 0x4000, Cmd: 0x4000, Command: 0x4000, ControlOrMeta: 0x4000 };

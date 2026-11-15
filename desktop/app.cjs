@@ -110,7 +110,7 @@ async function launch(options = {}) {
       const input = JSON.parse(body || '{}');
       if (req.url === '/diagnostics/open') {
         await diagnostics.flush();
-        const child = spawn('/usr/bin/open', ['-t', diagnostics.file], { stdio: 'ignore' });
+        const child = spawn(process.platform === 'darwin' ? '/usr/bin/open' : process.platform === 'win32' ? 'notepad.exe' : 'xdg-open', process.platform === 'darwin' ? ['-t', diagnostics.file] : [diagnostics.file], { stdio: 'ignore', windowsHide: true });
         await new Promise((resolve, reject) => { child.once('error', reject); child.once('exit', code => code === 0 ? resolve() : reject(new Error('日志查看器打开失败'))); });
         send(200, { ok: true }); return;
       }
@@ -218,7 +218,7 @@ async function launch(options = {}) {
       }
       if (req.url === '/obscura') {
         if (!['browser_navigate', 'browser_snapshot', 'browser_screenshot', 'browser_evaluate', 'browser_click', 'browser_fill'].includes(input.tool)) throw new Error('Unsupported Obscura tool');
-        if (!engine) engine = new Engine(options.binary || (existsSync(path.join(__dirname, 'bin/obscura')) ? path.join(__dirname, 'bin/obscura') : path.resolve(__dirname, '../target/release/obscura')));
+        if (!engine) { const name = process.platform === 'win32' ? 'obscura.exe' : 'obscura'; engine = new Engine(options.binary || (existsSync(path.join(__dirname, 'bin', name)) ? path.join(__dirname, 'bin', name) : path.resolve(__dirname, '../target/release', name))); }
         send(200, await engine.call(input.tool, input.arguments || {})); return;
       }
       send(404, { error: 'Not found' });

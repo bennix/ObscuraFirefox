@@ -1,0 +1,111 @@
+name: Firefox desktop installers
+on:
+  workflow_dispatch:
+    inputs:
+      source_run:
+        description: Successful Firefox native source build run ID
+        required: true
+permissions:
+  contents: read
+  actions: read
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2022]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26.13.1'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/download-artifact@v4
+        with:
+          name: firefox-engine-${{ runner.os }}-x64
+          path: engine
+          run-id: ${{ inputs.source_run }}
+          github-token: ${{ github.token }}
+      - name: Stage native runtime
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          npm ci --prefix desktop
+          node desktop/prepare-assets.cjs
+          python desktop/firefox/package-portable.py "$(find engine -type f | head -n 1)" desktop/dist/portable
+      - name: Configure MSVC
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+      - name: Compile Windows launchers
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          cl /O2 /W4 desktop\firefox\windows-launcher.c /Fe:desktop\dist\portable\Obscura.exe /link /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup
+          if errorlevel 1 exit /b 1
+          cl /O2 /W4 /DNATIVE_HOST desktop\firefox\windows-launcher.c /Fe:desktop\dist\portable\obscura-desktop\bin\obscura-native-host.exe
+          if errorlevel 1 exit /b 1
+      - name: Install Linux test dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb dbus-x11 libgtk-3-0t64 libasound2t64 libdbus-glib-1-2 libsecret-tools rpm ruby-dev
+      - name: Verify native Linux browser and media
+        if: runner.os == 'Linux'
+        env:
+          MOZ_DISABLE_CONTENT_SANDBOX: '0'
+        run: |
+          export OBSCURA_FIREFOX_BIN="$PWD/desktop/dist/portable/firefox"
+          export OBSCURA_TEST_BACKEND="$PWD/desktop/dist/portable/obscura-desktop"
+          dbus-run-session -- xvfb-run -a node --test desktop/test/firefox-runtime.test.cjs
+          desktop/dist/portable/obscura-desktop/runtime/media/yt-dlp/yt-dlp_linux --version
+      - name: Verify native Windows browser and media
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $env:OBSCURA_FIREFOX_BIN="$env:GITHUB_WORKSPACE\desktop\dist\portable\firefox.exe"
+          $env:OBSCURA_TEST_BACKEND="$env:GITHUB_WORKSPACE\desktop\dist\portable\obscura-desktop"
+          node --test desktop/test/firefox-runtime.test.cjs
+          if ($LASTEXITCODE -ne 0) { throw 'Native Windows browser tests failed' }
+          & desktop/dist/portable/obscura-desktop/runtime/media/yt-dlp/yt-dlp.exe --version
+          if ($LASTEXITCODE -ne 0) { throw 'yt-dlp verification failed' }
+      - name: Build DEB and RPM
+        if: runner.os == 'Linux'
+        run: |
+          sudo gem install fpm --no-document
+          mkdir -p packaging-root/opt packaging-root/usr/bin packaging-root/usr/share/applications packaging-root/usr/share/icons/hicolor/256x256/apps desktop/release
+          cp -a desktop/dist/portable packaging-root/opt/obscura-firefox
+          ln -s /opt/obscura-firefox/obscura packaging-root/usr/bin/obscura-firefox
+          cp desktop/firefox/branding/generated/default256.png packaging-root/usr/share/icons/hicolor/256x256/apps/obscura-firefox.png
+          cat > packaging-root/usr/share/applications/obscura-firefox.desktop <<'DESKTOP'
+          [Desktop Entry]
+          Type=Application
+          Name=Obscura Firefox
+          Exec=/opt/obscura-firefox/obscura
+          Icon=obscura-firefox
+          Categories=Network;WebBrowser;
+          Terminal=false
+          DESKTOP
+          fpm -s dir -t deb -n obscura-firefox -v 0.3.4 --architecture amd64 --license MPL-2.0 --description 'Firefox browser with local AI and media workspace' --url https://github.com/bennix/ObscuraFirefox --maintainer 'Obscura Firefox contributors' -d 'libgtk-3-0 | libgtk-3-0t64' -d libdbus-glib-1-2 -d libsecret-tools -d gnome-keyring -C packaging-root -p desktop/release/ObscuraFirefox-0.3.4-linux-amd64.deb .
+          fpm -s dir -t rpm -n obscura-firefox -v 0.3.4 --architecture x86_64 --license MPL-2.0 --description 'Firefox browser with local AI and media workspace' --url https://github.com/bennix/ObscuraFirefox --maintainer 'Obscura Firefox contributors' -d gtk3 -d dbus-glib -d libsecret -d gnome-keyring -C packaging-root -p desktop/release/ObscuraFirefox-0.3.4-linux-x86_64.rpm .
+          dpkg-deb --info desktop/release/*.deb
+          rpm -qip desktop/release/*.rpm
+      - name: Build Windows installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' desktop/firefox/windows-installer.iss
+          if ($LASTEXITCODE -ne 0) { throw 'Installer build failed' }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installers-${{ runner.os }}-x64
+          path: |
+            desktop/release/*.deb
+            desktop/release/*.rpm
+            desktop/release/*.exe
+          if-no-files-found: error
+          retention-days: 14

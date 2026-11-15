@@ -84,6 +84,7 @@ jobs:
           mv 'desktop/dist/Obscura 浏览器' desktop/dist/portable
       - name: Verify native Windows browser and media
         if: runner.os == 'Windows'
+        timeout-minutes: 8
         shell: pwsh
         run: |
           Move-Item desktop/dist/portable 'desktop/dist/Obscura 浏览器'

@@ -1,7 +1,7 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const os = require('node:os');
-const { spawn } = require('node:child_process');
+const { spawn, execFile } = require('node:child_process');
 const { launch } = require('../app.cjs');
 const { FirefoxTools } = require('./tools.cjs');
 const { installNativeHost } = require('./install-native-host.cjs');
@@ -64,14 +64,20 @@ async function start(options = {}) {
       ['browser.startup.page', 1]
     ].map(([key, value]) => `user_pref(${JSON.stringify(key)}, ${JSON.stringify(value)});`).join('\n') + '\n';
     await fs.writeFile(path.join(profile, 'user.js'), prefs, { mode: 0o600 });
-    child = spawn(binary, ['-no-remote', '-profile', profile, options.url || 'https://www.google.com/'], { stdio: options.testing ? 'inherit' : 'ignore' });
+    // Keep Windows' launcher attached to the real browser so its early handoff
+    // does not close the local backend while Firefox is still starting.
+    child = spawn(binary, [...(process.platform === 'win32' ? ['-wait-for-browser'] : []), '-no-remote', '-profile', profile, options.url || 'https://www.google.com/'], { windowsHide: true, stdio: options.testing ? 'inherit' : 'ignore' });
     await new Promise((resolve, reject) => { child.once('spawn', resolve); child.once('error', reject); });
     child.once('exit', () => backend.close('firefox-exit').catch(() => {}));
     return { ...backend, child, profile, close: async () => {
       if (child.exitCode === null && child.signalCode === null) {
         const exited = new Promise(resolve => child.once('exit', resolve));
-        child.kill('SIGTERM');
-        const timer = setTimeout(() => child.kill('SIGKILL'), 5000);
+        const terminate = force => {
+          if (process.platform === 'win32') execFile('taskkill.exe', ['/PID', String(child.pid), '/T', ...(force ? ['/F'] : [])], { windowsHide: true, timeout: 4000 }, () => {});
+          else child.kill(force ? 'SIGKILL' : 'SIGTERM');
+        };
+        terminate(false);
+        const timer = setTimeout(() => terminate(true), 5000);
         await exited.finally(() => clearTimeout(timer));
       }
       await backend.close('launcher-close');

@@ -58,7 +58,7 @@ class Downloads {
     for (const job of this.jobs) if (job.status === 'Downloading') { job.status = 'Stopped'; job.speed = 0; }
     try { await this.ipc({ api: true }); return; } catch {}
     this.process = spawn(this.binary, ['--headless', '--data', this.data, '--downloads', this.output], {
-      env: { ...process.env, MDM_REMOTE: 'off', MDM_DATA_DIR: this.data }, stdio: ['ignore', 'ignore', 'pipe']
+      env: { ...process.env, MDM_REMOTE: 'off', MDM_DATA_DIR: this.data }, windowsHide: true, stdio: ['ignore', 'ignore', 'pipe']
     });
     let launchError, log = '';
     this.process.on('error', error => { launchError = error; });
@@ -177,7 +177,7 @@ class Downloads {
     const folder = await fs.mkdtemp(path.join(this.directory, 'inspect-'));
     try {
       const { args, env } = await this.mediaArguments(url, folder);
-      const { stdout } = await execute(this.ytdlp, [...args, '--dump-single-json', '--skip-download', '--', url], { env, timeout: 60000, maxBuffer: 8000000 });
+      const { stdout } = await execute(this.ytdlp, [...args, '--dump-single-json', '--skip-download', '--', url], { env, windowsHide: true, timeout: 60000, maxBuffer: 8000000 });
       const info = JSON.parse(stdout);
       return { title: info.title, formats: mediaFormats(info.formats || []) };
     } finally { await fs.rm(folder, { recursive: true, force: true }); }
@@ -201,7 +201,7 @@ class Downloads {
       '--newline', '--progress', '--progress-template', 'download:{"event":"progress","downloaded":%(progress.downloaded_bytes)j,"size":%(progress.total_bytes)j,"estimate":%(progress.total_bytes_estimate)j,"speed":%(progress.speed)j,"fragment":%(progress.fragment_index)j,"fragments":%(progress.fragment_count)j}',
       '--print', 'after_move:{"event":"done","path":%(filepath)j}', '-f', job.format,
       '-o', path.join(folder, job.file_name ? path.parse(job.file_name).name.replaceAll('%', '%%') + '.%(ext)s' : '%(title).180B.%(ext)s'), '--', job.url);
-    const child = spawn(this.ytdlp, args, { env, detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(this.ytdlp, args, { env, windowsHide: true, detached: process.platform !== 'win32', stdio: ['ignore', 'pipe', 'pipe'] });
     this.children.set(job.id, child); job.status = 'Downloading'; job.error = undefined;
     let errorText = '';
     child.stderr.on('data', chunk => { errorText = (errorText + chunk).slice(-3000); });
@@ -243,7 +243,7 @@ class Downloads {
       const child = this.children.get(id);
       if (process.platform === 'win32' && action === 'pause' && child && job.status === 'Downloading') {
         job.status = 'Stopped'; job.speed = 0;
-        await new Promise(resolve => { child.once('close', resolve); require('node:child_process').execFile('taskkill.exe', ['/PID', String(child.pid), '/T', '/F'], () => {}); });
+        await new Promise(resolve => { child.once('close', resolve); require('node:child_process').execFile('taskkill.exe', ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true }, () => {}); });
         continue;
       }
       if (action === 'pause' && child && job.status === 'Downloading') { process.kill(-child.pid, 'SIGSTOP'); job.status = 'Stopped'; job.speed = 0; }
@@ -252,7 +252,7 @@ class Downloads {
         else if (!child) await this.runMedia(job);
       }
       if (action === 'remove') {
-        if (child && job.status !== 'Complete' && child.exitCode === null) { if (process.platform === 'win32') require('node:child_process').execFile('taskkill.exe', ['/PID', String(child.pid), '/T', '/F'], () => {}); else { process.kill(-child.pid, 'SIGCONT'); process.kill(-child.pid, 'SIGTERM'); } }
+        if (child && job.status !== 'Complete' && child.exitCode === null) { if (process.platform === 'win32') require('node:child_process').execFile('taskkill.exe', ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true }, () => {}); else { process.kill(-child.pid, 'SIGCONT'); process.kill(-child.pid, 'SIGTERM'); } }
         this.jobs = this.jobs.filter(item => item.id !== id);
       }
     }
@@ -285,7 +285,7 @@ class Downloads {
       const job = this.jobs.find(item => item.id === id);
       if (job && job.status !== 'Complete') {
         job.status = 'Stopped'; job.speed = 0;
-        try { if (process.platform === 'win32') require('node:child_process').execFile('taskkill.exe', ['/PID', String(child.pid), '/T', '/F'], () => {}); else { process.kill(-child.pid, 'SIGCONT'); process.kill(-child.pid, 'SIGTERM'); } } catch {}
+        try { if (process.platform === 'win32') require('node:child_process').execFile('taskkill.exe', ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true }, () => {}); else { process.kill(-child.pid, 'SIGCONT'); process.kill(-child.pid, 'SIGTERM'); } } catch {}
       }
       pending.push(new Promise(resolve => { child.once('close', resolve); setTimeout(resolve, 3000).unref(); }));
     }

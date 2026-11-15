@@ -67,6 +67,12 @@ ffname='ffmpeg-master-latest-'+('win64-gpl.zip' if windows else 'linux64-gpl.tar
 ffdir=cache/'ffmpeg';extract(asset('yt-dlp/FFmpeg-Builds','latest',ffname),ffdir)
 for name in ['ffmpeg','ffprobe']:
  binary=next(f for f in ffdir.rglob(name+suffix) if f.is_file());shutil.copy2(binary,media/(name+suffix))
+if not windows:
+ linked=subprocess.run(['ldd',str(media/'ffmpeg')],capture_output=True,text=True)
+ dependencies=linked.stdout+linked.stderr
+ if any(name in dependencies for name in ['libavcodec','libavformat','libavutil','libavfilter','libswresample','libswscale']):
+  raise RuntimeError('Bundled FFmpeg must not depend on system codec libraries')
+ (media/'FFMPEG-LINKAGE.txt').write_text(dependencies)
 (media/'FFMPEG-LICENSE.txt').write_bytes(subprocess.check_output([str(media/('ffmpeg'+suffix)),'-L'],stderr=subprocess.STDOUT))
 # Keep the optional headless Rust engine available alongside the Firefox tools.
 rust_name='obscura-x86_64-'+('windows.zip' if windows else 'linux.tar.gz')

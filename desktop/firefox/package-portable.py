@@ -32,6 +32,19 @@ def extract(archive, destination):
   with tarfile.open(archive) as t:t.extractall(destination,filter='data')
 
 engine=pathlib.Path(a.engine).resolve(); temp=cache/'engine-extracted'
+if engine.is_dir():
+ candidates=[]
+ for candidate in engine.rglob('*'):
+  if not candidate.is_file():continue
+  if zipfile.is_zipfile(candidate):
+   with zipfile.ZipFile(candidate) as archive:names=set(archive.namelist())
+  elif tarfile.is_tarfile(candidate):
+   with tarfile.open(candidate) as archive:names=set(archive.getnames())
+  else:continue
+  if any(pathlib.PurePosixPath(name).name=='firefox'+suffix and str(pathlib.PurePosixPath(name).parent/'application.ini') in names for name in names):candidates.append(candidate)
+ if len(candidates)!=1:raise RuntimeError('Expected one Firefox engine archive, found: '+str(candidates))
+ engine=candidates[0]
+print('Selected engine archive:',engine.name,flush=True)
 provenance.append({'file':engine.name,'sha256':hashlib.sha256(engine.read_bytes()).hexdigest(),
  'engineWorkflowRun':os.environ.get('OBSCURA_ENGINE_RUN'),
  'workspaceCommit':subprocess.check_output(['git','rev-parse','HEAD'],cwd=repo,text=True).strip(),

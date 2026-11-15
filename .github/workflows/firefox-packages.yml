@@ -48,7 +48,7 @@ jobs:
         run: |
           npm ci --prefix desktop
           node desktop/prepare-assets.cjs
-          python desktop/firefox/package-portable.py "$(find engine -type f | head -n 1)" desktop/dist/portable
+          python desktop/firefox/package-portable.py engine desktop/dist/portable
       - name: Configure MSVC
         if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@v1

@@ -9,6 +9,11 @@ on:
       source_run:
         description: Successful Firefox native source build run ID
         required: true
+      platform:
+        description: Platform to package
+        type: choice
+        options: [all, linux, windows]
+        default: all
 permissions:
   contents: read
   actions: read
@@ -18,7 +23,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, windows-2022]
+        os: ${{ fromJSON(inputs.platform == 'linux' && '["ubuntu-24.04"]' || inputs.platform == 'windows' && '["windows-2022"]' || '["ubuntu-24.04", "windows-2022"]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     steps:

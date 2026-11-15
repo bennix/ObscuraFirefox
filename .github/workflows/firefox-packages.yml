@@ -1,5 +1,9 @@
 name: Firefox desktop installers
 on:
+  workflow_run:
+    workflows: [Firefox native source builds]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
     inputs:
       source_run:
@@ -10,6 +14,7 @@ permissions:
   actions: read
 jobs:
   package:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     strategy:
       fail-fast: false
       matrix:
@@ -28,7 +33,7 @@ jobs:
         with:
           name: firefox-engine-${{ runner.os }}-x64
           path: engine
-          run-id: ${{ inputs.source_run }}
+          run-id: ${{ inputs.source_run || github.event.workflow_run.id }}
           github-token: ${{ github.token }}
       - name: Stage native runtime
         shell: bash

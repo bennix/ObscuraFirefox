@@ -17,39 +17,7 @@ async function applySource(source) {
   }
   const prefs = await fs.readFile(path.join(__dirname, 'privacy-prefs.js'), 'utf8');
   await fs.appendFile(path.join(branding, 'pref/firefox-branding.js'), '\n' + prefs);
-  const iconset = path.join(source, '../obscura.iconset');
-  await fs.mkdir(iconset, { recursive: true });
-  const image = path.join(__dirname, 'branding/icon-source.png');
-  for (const size of [16, 32, 128, 256, 512]) {
-    for (const scale of [1, 2]) {
-      const output = path.join(iconset, `icon_${size}x${size}${scale === 2 ? '@2x' : ''}.png`);
-      execFileSync('/usr/bin/sips', ['-z', String(size * scale), String(size * scale), image, '--out', output], { stdio: 'ignore' });
-    }
-  }
-  execFileSync('/usr/bin/iconutil', ['-c', 'icns', iconset, '-o', path.join(branding, 'firefox.icns')]);
-  for (const size of [16, 22, 24, 32, 48, 64, 128, 256]) {
-    execFileSync('/usr/bin/sips', ['-z', String(size), String(size), image, '--out', path.join(branding, `default${size}.png`)], { stdio: 'ignore' });
-  }
-  for (const [name, size] of [['about.png', 300], ['about-logo.png', 192], ['about-logo@2x.png', 384], ['about-logo-private.png', 192], ['about-logo-private@2x.png', 384]]) {
-    execFileSync('/usr/bin/sips', ['-z', String(size), String(size), image, '--out', path.join(branding, 'content', name)], { stdio: 'ignore' });
-  }
-  const encoded = (await fs.readFile(image)).toString('base64');
-  await fs.writeFile(path.join(branding, 'content/about-logo.svg'), `<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 1024 1024"><image width="1024" height="1024" href="data:image/png;base64,${encoded}"/></svg>`);
-  const wordmark = '<svg xmlns="http://www.w3.org/2000/svg" width="240" height="60" viewBox="0 0 240 60"><text x="120" y="44" text-anchor="middle" font-family="system-ui,sans-serif" font-size="42" font-weight="600" fill="context-fill">Obscura</text></svg>';
-  for (const file of ['about-wordmark.svg', 'firefox-wordmark.svg']) await fs.writeFile(path.join(branding, 'content', file), wordmark);
-
-  const catalog = path.join(source, '../Obscura.xcassets');
-  const appIcon = path.join(catalog, 'AppIcon.appiconset');
-  await fs.mkdir(appIcon, { recursive: true });
-  await fs.writeFile(path.join(catalog, 'Contents.json'), JSON.stringify({ info: { version: 1, author: 'xcode' } }));
-  const images = [];
-  for (const size of [16, 32, 128, 256, 512]) for (const scale of [1, 2]) {
-    const filename = `icon_${size}x${size}${scale === 2 ? '@2x' : ''}.png`;
-    await fs.copyFile(path.join(iconset, filename), path.join(appIcon, filename));
-    images.push({ idiom: 'mac', size: `${size}x${size}`, scale: `${scale}x`, filename });
-  }
-  await fs.writeFile(path.join(appIcon, 'Contents.json'), JSON.stringify({ images, info: { version: 1, author: 'xcode' } }));
-  execFileSync('/usr/bin/xcrun', ['actool', catalog, '--compile', branding, '--platform', 'macosx', '--minimum-deployment-target', '11.0', '--app-icon', 'AppIcon', '--output-partial-info-plist', path.join(source, '../obscura-assets.plist')], { stdio: 'pipe' });
+  await fs.cp(path.join(__dirname, 'branding/generated'), branding, { recursive: true });
   const workspace = path.join(source, 'browser/obscura-workspace');
   const extension = path.join(workspace, 'extension');
   await require('./prepare-extension.cjs').prepareExtension(extension);

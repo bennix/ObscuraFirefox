@@ -11,7 +11,7 @@ async function prepareExtension(destination, bridge = null) {
   // Shared detection code uses the promise-capable API in Firefox as well.
   await fs.writeFile(path.join(destination, 'search-engines.js'), `globalThis.SEARCH_ENGINES=${JSON.stringify(require('../navigation.cjs').engines)};\n`);
   await fs.mkdir(path.join(destination, 'icons'), { recursive: true });
-  for (const size of [16, 32, 48, 64, 128]) require('node:child_process').execFileSync('/usr/bin/sips', ['-z', String(size), String(size), path.join(__dirname, 'branding/icon-source.png'), '--out', path.join(destination, 'icons', `${size}.png`)], { stdio: 'ignore' });
+  for (const size of [16, 32, 48, 64, 128]) await fs.copyFile(path.join(__dirname, `branding/generated/default${size}.png`), path.join(destination, 'icons', `${size}.png`));
   const media = await fs.readFile(path.join(destination, 'media-sniffer.js'), 'utf8');
   await fs.writeFile(path.join(destination, 'media-sniffer.js'), media.replaceAll('chrome.', 'browser.'));
   await fs.writeFile(path.join(destination, 'bridge-config.js'), `globalThis.BRIDGE=${JSON.stringify(bridge)};\n`, { mode: 0o600 });

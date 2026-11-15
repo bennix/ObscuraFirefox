@@ -64,6 +64,12 @@ workspace=out/'browser/obscura-workspace'
 archive=workspace.with_suffix('.xpi')
 if archive.exists():archive.unlink()
 subprocess.run(['node','-e',"require('./desktop/firefox/prepare-extension.cjs').prepareExtension(process.argv[1])",str(workspace)],cwd=repo,check=True)
+# This built-in workspace contains no per-user bridge token. System-installed
+# packages must let ordinary users read it after the files become root-owned.
+assert (workspace/'bridge-config.js').read_text().strip()=='globalThis.BRIDGE=null;'
+workspace.chmod(0o755)
+for resource in workspace.rglob('*'):
+ if not resource.is_symlink():resource.chmod(0o755 if resource.is_dir() else 0o644)
 (out/'distribution').mkdir(exist_ok=True)
 (out/'distribution/policies.json').write_text(json.dumps({'policies':{'DisableAppUpdate':True}}))
 version='26.13.1';node_name=f'node-v{version}-'+('win-x64.zip' if windows else 'linux-x64.tar.xz')

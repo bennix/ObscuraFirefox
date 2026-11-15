@@ -42,6 +42,7 @@ function renderPendingAttachments() {
 }
 
 async function addAttachments(files) {
+  const added = [];
   let failure = '';
   for (const file of files) {
     if (pendingAttachments.length >= 10) { failure = '每条消息最多添加 10 个附件'; break; }
@@ -51,10 +52,12 @@ async function addAttachments(files) {
     const pdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
     const text = file.type.startsWith('text/') || /\.(txt|md|csv|json|jsonl|xml|html?|css|js|ts|py|rs|yaml|yml|log|svg)$/i.test(file.name);
     if (!image && !pdf && !text) { failure = '支持 PNG、JPEG、WebP、文本文件和 PDF'; continue; }
-    pendingAttachments.push({ file, name: file.name || '粘贴的图片.png', mime: file.type, kind: image ? 'image' : pdf ? 'pdf' : 'text', preview: image ? URL.createObjectURL(file) : null });
+    const attachment = { file, name: file.name || '粘贴的图片.png', mime: file.type, kind: image ? 'image' : pdf ? 'pdf' : 'text', preview: image ? URL.createObjectURL(file) : null };
+    pendingAttachments.push(attachment); added.push(attachment);
   }
   renderPendingAttachments();
   if (failure) status(failure, true);
+  return added;
 }
 
 async function uploadAttachments(batch) {

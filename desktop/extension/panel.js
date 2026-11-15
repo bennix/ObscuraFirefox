@@ -285,8 +285,20 @@ $('snapshot').onclick = () => run(async () => { $('page-output').textContent = t
 $('send-page').onclick = () => run(async () => { const content = requirePageText($('page-output')); switchTab('chat'); await send('请根据页面工具读取到的内容回答。\n\n' + content); });
 $('attach-page').onclick = () => run(async () => { const content = requirePageText($('page-output')); switchTab('chat'); await addAttachments([pageTextFile('page.txt', content)]); status('页面内容已加入附件，写好问题后发送'); });
 $('capture').onclick = () => run(async () => { const result = await mcp('browser_screenshot'); const img = result.content.find(item => item.type === 'image'); png = `data:${img.mimeType};base64,${img.data}`; $('preview').src = png; $('preview').hidden = false; for (const id of ['save-capture', 'send-capture', 'attach-capture']) $(id).hidden = false; });
-$('send-capture').onclick = () => run(async () => { if (!png) throw new Error('请先截图'); switchTab('chat'); await addAttachments([dataUrlFile(png, 'page.png')]); await send('请看这张当前网页截图。'); });
-$('attach-capture').onclick = () => run(async () => { if (!png) throw new Error('请先截图'); switchTab('chat'); await addAttachments([dataUrlFile(png, 'page.png')]); status('截图已加入附件，写好问题后发送'); });
+async function stageScreenshot() {
+  if (!png) throw new Error('请先截图');
+  switchTab('chat');
+  const added = await addAttachments([dataUrlFile(png, 'page.png')]);
+  if (!added.length) return;
+  if (!$('prompt').value.trim()) $('prompt').value = '请分析这张网页截图。';
+  $('prompt').focus();
+  status('截图已加入输入区，可补充问题后点击发送');
+}
+function prepareScreenshotMessage() {
+  return stageScreenshot().catch(error => status(error.message, true));
+}
+$('send-capture').onclick = prepareScreenshotMessage;
+$('attach-capture').onclick = prepareScreenshotMessage;
 $('save-capture').onclick = () => { const link = document.createElement('a'); link.href = png; link.download = 'obscura-capture.png'; link.click(); };
 for (const action of ['click', 'fill']) $(action).onclick = () => run(async () => {
   const selector = $('selector').value.trim(); if (!selector) throw new Error('请输入 CSS 选择器');

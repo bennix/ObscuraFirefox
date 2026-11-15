@@ -60,6 +60,29 @@
             "type": "string"
           }
         ]
+      },
+      {
+        "name": "click",
+        "type": "function",
+        "async": true,
+        "parameters": [
+          {
+            "name": "tabId",
+            "type": "integer"
+          },
+          {
+            "name": "x",
+            "type": "number"
+          },
+          {
+            "name": "y",
+            "type": "number"
+          },
+          {
+            "name": "url",
+            "type": "string"
+          }
+        ]
       }
     ]
   }

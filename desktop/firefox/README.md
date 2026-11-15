@@ -1,7 +1,7 @@
 # Obscura Firefox
 
 Independent browser built from Mozilla Firefox release source, with a built-in
-AI workspace and a local authenticated backend. Version 0.3.4 is available for
+AI workspace and a local authenticated backend. Version 0.3.5 is available for
 macOS ARM64, Windows x64, and Linux amd64/x86_64 in DEB and RPM formats.
 The macOS DMG is Developer ID signed and Apple notarized. Native Windows and
 Ubuntu CI runtime checks passed; the DEB also passed after installation.
@@ -10,7 +10,7 @@ Linux distributions remain outside the verified scope. Website login compatibili
 and Touch ID are not guaranteed.
 
 Published installers and per-platform build records:
-https://github.com/bennix/ObscuraFirefox/releases/tag/firefox-v0.3.4
+https://github.com/bennix/ObscuraFirefox/releases/tag/firefox-v0.3.5
 
 ## Source and build
 

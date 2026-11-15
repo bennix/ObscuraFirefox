@@ -1,7 +1,7 @@
 const { WebSocketServer, WebSocket } = require('ws');
 const { randomUUID, timingSafeEqual } = require('node:crypto');
 const { definitions: commonDefinitions } = require('../chrome-tools.cjs');
-const definitions = [...commonDefinitions,
+const definitions = [...commonDefinitions.map(tool => ['browser_click', 'browser_fill'].includes(tool.name) ? { ...tool, description: tool.description + ' Returns an immediate post-action snapshot; inspect it before requesting another snapshot or screenshot. This snapshot is not a guarantee that asynchronous work has finished.' } : tool),
   { name: 'browser_upload', description: 'Upload a user-provided attachment to a file input. Use an attachment ID from the user message, never a filesystem path.', inputSchema: { type: 'object', properties: { attachmentId: { type: 'string' }, selector: { type: 'string' }, ref: { type: 'string' } }, required: ['attachmentId'] } },
   { name: 'browser_media', description: 'List media detected in the current task tab. Download only media selected by the user.', inputSchema: { type: 'object', properties: {} } },
   { name: 'browser_tabs', description: 'List open browser tabs with IDs, titles and URLs.', inputSchema: { type: 'object', properties: {} } },

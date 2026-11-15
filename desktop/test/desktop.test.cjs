@@ -45,7 +45,7 @@ test('ZenMux loop sends requested model, dispatches MCP tool, and returns result
   const messages = await chat({ messages: [{ role: 'user', content: '总结网页' }], model: 'openai/gpt-5.4', key: 'fixture-key', fetcher,
     dispatch: async name => { usedTool = name; return { content: [{ type: 'text', text: 'Fixture page' }] }; } });
   assert.equal(calls, 3); assert.equal(usedTool, 'browser_snapshot');
-  assert.equal(messages.at(-1).content, '页面总结已完成。');
+  assert.equal(messages.at(-2).content, '页面总结已完成。');
   assert.ok(messages.some(message => message.role === 'tool'));
 });
 
@@ -87,8 +87,12 @@ test('long task stops honestly at tool budget instead of claiming completion', a
   let used = 0;
   const result = await chat({ messages: [{ role: 'user', content: '长任务' }], model: 'fixture', key: 'fixture', maxTools: 2,
     dispatch: async () => { used++; return { content: [{ type: 'text', text: 'working' }] }; },
-    fetcher: async () => ({ ok: true, json: async () => ({ choices: [{ message: { role: 'assistant', tool_calls: [{ id: 'c' + used, type: 'function', function: { name: 'browser_snapshot', arguments: '{}' } }] } }] }) }) });
-  assert.equal(used, 2); assert.match(result.at(-1).content, /尚未验收完成/);
+    fetcher: async (_, options) => {
+      if (JSON.parse(options.body).tool_choice) return { ok: true, json: async () => ({ choices: [{ message: { role: 'assistant', content: JSON.stringify({ status: 'continue', reason: 'Still working', checks: [{item:'finished',passed:false}], next_action:'continue' }) } }] }) };
+      return { ok: true, json: async () => ({ choices: [{ message: { role: 'assistant', tool_calls: [{ id: 'c' + used, type: 'function', function: { name: 'browser_snapshot', arguments: '{}' } }] } }] }) };
+    } });
+  // Two execution tools and one read-only final acceptance snapshot.
+  assert.equal(used, 3); assert.match(result.at(-1).content, /尚未验收完成/);
 });
 
 test('Chrome 157 Stable: real video, privacy in every frame, images, GUI and MCP', { timeout: 120000 }, async () => {
@@ -224,7 +228,7 @@ test('Chrome 157 Stable: real video, privacy in every frame, images, GUI and MCP
     }
     assert.equal(recovered.requestId, requestId);
     assert.equal(recovered.status, 'done');
-    assert.match(recovered.history.at(-1).content, /流式报告/);
+    assert.match(recovered.history.at(-2).content, /流式报告/);
     assert.equal(generations, 4);
     let proxyRequests = 0;
     const browserProxy = http.createServer((_, response) => {

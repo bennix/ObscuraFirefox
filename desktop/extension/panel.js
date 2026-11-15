@@ -129,7 +129,7 @@ $('delete-key').onclick = () => run(async () => {
   settingsUI(await request('/settings', { models: config.models, model: config.model, deleteKey: true }));
 });
 function renderChat() {
-  const visible = messages.filter(message => ['user', 'assistant'].includes(message.role) && typeof message.content === 'string' && message.content);
+  const visible = messages.filter(message => !message.internal && ['user', 'assistant'].includes(message.role) && typeof message.content === 'string' && message.content);
   if (!visible.length) return;
   const conversation = $('conversation');
   const previousScroll = conversation.scrollTop;

@@ -80,6 +80,7 @@ jobs:
           PY
           sudo apparmor_parser -r /tmp/obscura-ci-apparmor
           dbus-run-session -- xvfb-run -a node --test desktop/test/firefox-runtime.test.cjs
+          dbus-run-session -- xvfb-run -a node --test desktop/test/firefox-native-click.test.cjs
           "$OBSCURA_TEST_BACKEND/runtime/media/yt-dlp/yt-dlp_linux" --version
           mv 'desktop/dist/Obscura 浏览器' desktop/dist/portable
       - name: Verify native Windows browser and media
@@ -92,6 +93,8 @@ jobs:
           $env:OBSCURA_TEST_BACKEND="$env:GITHUB_WORKSPACE\desktop\dist\Obscura 浏览器\obscura-desktop"
           node --test desktop/test/firefox-runtime.test.cjs
           if ($LASTEXITCODE -ne 0) { throw 'Native Windows browser tests failed' }
+          node --test desktop/test/firefox-native-click.test.cjs
+          if ($LASTEXITCODE -ne 0) { throw 'Native pointer and refresh tests failed' }
           & "$env:OBSCURA_TEST_BACKEND/runtime/media/yt-dlp/yt-dlp.exe" --version
           if ($LASTEXITCODE -ne 0) { throw 'yt-dlp verification failed' }
           Move-Item 'desktop/dist/Obscura 浏览器' desktop/dist/portable
@@ -113,19 +116,20 @@ jobs:
           Categories=Network;WebBrowser;
           Terminal=false
           DESKTOP
-          fpm --after-install desktop/firefox/linux-postinstall.sh -s dir -t deb -n obscura-firefox -v 0.3.4 --architecture amd64 --license MPL-2.0 --description 'Firefox browser with local AI and media workspace' --url https://github.com/bennix/ObscuraFirefox --maintainer 'Obscura Firefox contributors' -d 'libgtk-3-0 | libgtk-3-0t64' -d libdbus-glib-1-2 -d libsecret-tools -d gnome-keyring -C packaging-root -p desktop/release/ObscuraFirefox-0.3.4-linux-amd64.deb .
-          fpm --after-install desktop/firefox/linux-postinstall.sh -s dir -t rpm -n obscura-firefox -v 0.3.4 --architecture x86_64 --license MPL-2.0 --description 'Firefox browser with local AI and media workspace' --url https://github.com/bennix/ObscuraFirefox --maintainer 'Obscura Firefox contributors' -d gtk3 -d dbus-glib -d libsecret -d gnome-keyring -C packaging-root -p desktop/release/ObscuraFirefox-0.3.4-linux-x86_64.rpm .
+          fpm --after-install desktop/firefox/linux-postinstall.sh -s dir -t deb -n obscura-firefox -v 0.3.5 --architecture amd64 --license MPL-2.0 --description 'Firefox browser with local AI and media workspace' --url https://github.com/bennix/ObscuraFirefox --maintainer 'Obscura Firefox contributors' -d 'libgtk-3-0 | libgtk-3-0t64' -d libdbus-glib-1-2 -d libsecret-tools -d gnome-keyring -C packaging-root -p desktop/release/ObscuraFirefox-0.3.5-linux-amd64.deb .
+          fpm --after-install desktop/firefox/linux-postinstall.sh -s dir -t rpm -n obscura-firefox -v 0.3.5 --architecture x86_64 --license MPL-2.0 --description 'Firefox browser with local AI and media workspace' --url https://github.com/bennix/ObscuraFirefox --maintainer 'Obscura Firefox contributors' -d gtk3 -d dbus-glib -d libsecret -d gnome-keyring -C packaging-root -p desktop/release/ObscuraFirefox-0.3.5-linux-x86_64.rpm .
           dpkg-deb --info desktop/release/*.deb
           rpm -qip desktop/release/*.rpm
       - name: Install and verify Linux package
         if: runner.os == 'Linux'
         run: |
-          sudo apt-get install -y ./desktop/release/ObscuraFirefox-0.3.4-linux-amd64.deb
+          sudo apt-get install -y ./desktop/release/ObscuraFirefox-0.3.5-linux-amd64.deb
           export OBSCURA_FIREFOX_BIN=/opt/obscura-firefox/firefox
           export OBSCURA_TEST_BACKEND=/opt/obscura-firefox/obscura-desktop
           dbus-run-session -- xvfb-run -a node --test desktop/test/firefox-runtime.test.cjs
+          dbus-run-session -- xvfb-run -a node --test desktop/test/firefox-native-click.test.cjs
           mkdir -p /tmp/obscura-rpm-check
-          rpm2cpio desktop/release/ObscuraFirefox-0.3.4-linux-x86_64.rpm | (cd /tmp/obscura-rpm-check && cpio --quiet -id)
+          rpm2cpio desktop/release/ObscuraFirefox-0.3.5-linux-x86_64.rpm | (cd /tmp/obscura-rpm-check && cpio --quiet -id)
           cmp /opt/obscura-firefox/firefox /tmp/obscura-rpm-check/opt/obscura-firefox/firefox
           cmp /opt/obscura-firefox/obscura-desktop/runtime/media/ffmpeg /tmp/obscura-rpm-check/opt/obscura-firefox/obscura-desktop/runtime/media/ffmpeg
       - name: Build Windows installer

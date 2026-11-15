@@ -11,11 +11,14 @@ async function execute(tabId, fn, args) {
   return result;
 }
 function pageAction({ method, args }) {
+  // Extension isolated-world state: references identify nodes, never list positions.
+  const state = globalThis.__obscuraAutomationState ||= { document, ids: new WeakMap(), refs: new Map(), next: 0, epoch: `${Date.now()}${Math.floor(Math.random() * 1000000)}` };
+  if (state.document !== document) throw new Error('页面文档已变化，请重新读取页面');
   const target = () => {
     const selector = args.ref && /^e\d+$/.test(args.ref) ? `[data-obscura-ref="${args.ref}"]` : args.selector;
     if (!selector) throw new Error('请提供 ref 或 CSS selector');
-    const element = document.querySelector(selector);
-    if (!element) throw new Error('页面元素已变化，请重新读取页面');
+    const element = args.ref ? state.refs.get(args.ref) : document.querySelector(selector);
+    if (!element || !element.isConnected) throw new Error('页面元素已变化，请重新读取页面');
     return element;
   };
   if (method === 'browser_upload') {
@@ -32,19 +35,43 @@ function pageAction({ method, args }) {
     return { uploaded: file.name, size: file.size };
   }
   if (method === 'browser_snapshot') {
-    const controls = [...document.querySelectorAll('a,button,input,textarea,select,[role="button"]')]
+    state.refs.clear();
+    const controls = [...document.querySelectorAll('a,button,input,textarea,select,[role="button"],[role="checkbox"],[role="radio"],[role="menuitem"],[role="menuitemcheckbox"],[role="menuitemradio"],[role="combobox"],[role="option"],[role="tab"],[contenteditable="true"],[aria-haspopup]')]
       .filter(el => el.getClientRects().length).slice(0, 180).map((el, i) => {
-        const ref = `e${i + 1}`; el.setAttribute('data-obscura-ref', ref);
+        let ref = state.ids.get(el);
+        if (!ref) { ref = `e${state.epoch}${++state.next}`; state.ids.set(el, ref); }
+        state.refs.set(ref, el);
         return { ref, tag: el.tagName.toLowerCase(),
           label: (el.getAttribute('aria-label') || [...(el.labels || [])].map(label => label.innerText).join(' ') || el.innerText || el.getAttribute('placeholder') || el.getAttribute('name') || '').slice(0, 180),
           type: el.getAttribute('type') || undefined,
-          checked: ['checkbox', 'radio'].includes(el.type) ? el.checked : undefined,
+          role: el.getAttribute('role') || undefined,
+          expanded: el.getAttribute('aria-expanded') || undefined,
+          haspopup: el.getAttribute('aria-haspopup') || undefined,
+          selected: el.getAttribute('aria-selected') || undefined,
+          checked: ['checkbox', 'radio'].includes(el.type) ? el.checked : el.getAttribute('aria-checked') || undefined,
           disabled: el.disabled === true,
           value: /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) && el.type !== 'password' ? String(el.value).slice(0, 1000) : undefined };
       });
     return { url: location.href, title: document.title, text: (document.body?.innerText || '').slice(0, 18000), controls };
   }
-  if (method === 'browser_click') { target().click(); return 'Clicked'; }
+  if (method === 'browser_click') {
+    const el = target();
+    if (el.disabled || el.getAttribute('aria-disabled') === 'true') throw new Error('目标控件不可用');
+    el.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' });
+    const rect = el.getBoundingClientRect();
+    const left = Math.max(0, rect.left), right = Math.min(innerWidth, rect.right);
+    const top = Math.max(0, rect.top), bottom = Math.min(innerHeight, rect.bottom);
+    if (right <= left || bottom <= top) throw new Error('目标不可见，请重新读取页面');
+    const x = (left + right) / 2, y = (top + bottom) / 2;
+    const hit = document.elementFromPoint(x, y);
+    if (!hit || (hit !== el && !el.contains(hit))) throw new Error('目标被其他元素遮挡，请重新读取页面');
+    const evidence = JSON.stringify(pageAction({ method: 'browser_snapshot', args: {} }));
+    const previous = state.lastClick;
+    const count = previous?.element === el && previous.evidence === evidence ? previous.count + 1 : 1;
+    if (count > 2) throw new Error('同一控件连续点击后页面未变化，已阻止重复点击；请检查菜单状态、等待异步结果或换用其他已观察到的控件');
+    state.lastClick = { element: el, evidence, count };
+    return { x, y, url: location.href };
+  }
   if (method === 'browser_fill') {
     const el = target(); el.focus();
     if (el.isContentEditable) el.textContent = String(args.value);
@@ -96,19 +123,36 @@ async function command(method, args = {}, targetTabId) {
     if (!['http:', 'https:'].includes(url.protocol)) throw new Error('Only HTTP/HTTPS navigation is supported');
     const current = Number.isInteger(targetTabId) ? await browser.tabs.get(targetTabId) : (await browser.tabs.query({ active: true, lastFocusedWindow: true }))[0];
     const tab = current || await browser.tabs.create({ url: 'about:blank' });
+    let before;
+    try { before = await execute(tab.id, () => ({ epoch: performance.timeOrigin, url: location.href })); } catch {}
     return new Promise((resolve, reject) => {
       let started = false;
       let settled = false;
-      const finish = (error, value) => { if (settled) return; settled = true; clearTimeout(timer); browser.tabs.onUpdated.removeListener(updated); browser.tabs.onRemoved.removeListener(removed); error ? reject(error) : resolve(value); };
+      const finish = (error, value) => { if (settled) return; settled = true; clearTimeout(timer); clearInterval(poll); browser.tabs.onUpdated.removeListener(updated); browser.tabs.onRemoved.removeListener(removed); error ? reject(error) : resolve(value); };
       const updated = (id, change, value) => {
         if (id !== tab.id) return;
         if (change.status === 'loading') started = true;
         if (change.status === 'complete' && started && /^https?:/.test(value.url || '')) finish(null, { url: value.url, title: value.title });
       };
       const removed = id => { if (id === tab.id) finish(new Error('标签页已关闭')); };
-      const timer = setTimeout(() => finish(new Error('网页加载超时')), 110000);
+      let probing = false;
+      const probe = async () => {
+        if (settled || probing) return;
+        probing = true;
+        try {
+          const state = await execute(tab.id, () => ({ epoch: performance.timeOrigin, url: location.href, title: document.title, ready: document.readyState }));
+          const newDocument = before && state.epoch !== before.epoch;
+          const sameDocumentNavigation = before && before.url !== url.href && state.url === url.href;
+          if ((newDocument || sameDocumentNavigation) && ['interactive', 'complete'].includes(state.ready)) finish(null, { url: state.url, title: state.title, ready: 'dom', needsSnapshot: true });
+        } catch {} finally { probing = false; }
+      };
+      const poll = setInterval(probe, 250);
+      // A slow subresource must not block the agent for nearly two minutes.
+      // Pending is explicitly not navigation completion or task success.
+      const timer = setTimeout(() => finish(null, { requestedURL: url.href, ready: 'pending', needsSnapshot: true, message: '页面仍在加载，请读取状态核实，不要重复刷新' }), 15000);
       browser.tabs.onUpdated.addListener(updated); browser.tabs.onRemoved.addListener(removed);
-      browser.tabs.update(tab.id, { url: url.href }).then(() => browser.tabs.get(tab.id)).then(value => {
+      const navigation = current?.url === url.href ? browser.tabs.reload(tab.id) : browser.tabs.update(tab.id, { url: url.href });
+      navigation.then(() => browser.tabs.get(tab.id)).then(value => {
         if (started && value.status === 'complete' && /^https?:/.test(value.url || '')) finish(null, { url: value.url, title: value.title });
       }, error => finish(error));
     });
@@ -125,7 +169,22 @@ async function command(method, args = {}, targetTabId) {
     const [result] = await browser.tabs.executeScript(tab.id, { code: args.expression });
     return result;
   }
-  return execute(tab.id, pageAction, { method, args });
+  let result = await execute(tab.id, pageAction, { method, args });
+  if (method === 'browser_click') result = await browser.obscuraNative.click(tab.id, result.x, result.y, result.url);
+  if (['browser_click', 'browser_fill'].includes(method)) {
+    try {
+      // Observe the next rendered state without waiting for network idle.
+      await execute(tab.id, () => new Promise(resolve => {
+        const timer = setTimeout(resolve, 150);
+        requestAnimationFrame(() => requestAnimationFrame(() => { clearTimeout(timer); resolve(); }));
+      }));
+      return { action: result, snapshot: await execute(tab.id, pageAction, { method: 'browser_snapshot', args: {} }) };
+    } catch (error) {
+      // A click can navigate. Failure to observe must not replay its effect.
+      return { action: result, observationError: String(error.message), needsSnapshot: true };
+    }
+  }
+  return result;
 }
 async function connect() {
   clearTimeout(reconnectTimer);

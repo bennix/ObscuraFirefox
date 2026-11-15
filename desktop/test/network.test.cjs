@@ -86,7 +86,7 @@ test('chat emits text before completion and keeps observer verification', async 
   const end = events.findIndex(item => item.type === 'assistant-end');
   assert.ok(delta >= 0 && delta < end);
   assert.equal(snapshotCalls, 1);
-  assert.equal(result.at(-1).content, '# 公式\n$x^2$');
+  assert.equal(result.at(-2).content, '# 公式\n$x^2$');
   assert.equal(events.at(-1).status, 'complete');
 });
 
@@ -167,4 +167,43 @@ test('repeated truncated SSE falls back to a complete buffered response without 
   assert.equal(answer.tool_calls.length, 1);
   assert.equal(answer.tool_calls[0].id, 'complete');
   assert.ok(events.some(event => event.mode === 'buffered'));
+});
+
+test('stopping during a tool does not request another model turn or observer', async () => {
+  const controller = new AbortController(); let requests = 0;
+  await assert.rejects(chat({ messages: [{ role: 'user', content: 'fixture' }], model: 'fixture', key: 'fixture', signal: controller.signal,
+    dispatch: async () => { controller.abort(new Error('fixture stopped')); throw controller.signal.reason; },
+    fetcher: async () => { requests++; return sse([event({ tool_calls: [{ index: 0, id: 'click', type: 'function', function: { name: 'browser_click', arguments: '{"ref":"e1"}' } }] }), finish]); }
+  }), /fixture stopped/);
+  assert.equal(requests, 1);
+});
+
+test('observer feedback stays internal and its UI metadata is not sent to the provider', async () => {
+  let audits = 0;
+  const history = await chat({ messages: [{ role: 'user', content: 'fixture' }], model: 'fixture', key: 'fixture',
+    dispatch: async () => ({ content: [{ type: 'text', text: 'fixture evidence' }] }),
+    fetcher: async (_, options) => {
+      const input = JSON.parse(options.body);
+      assert.ok(input.messages.every(message => !Object.hasOwn(message, 'internal')));
+      if (input.stream) return sse([event({ content: 'candidate' }), finish]);
+      return Response.json({ choices: [{ message: { role: 'assistant', content: JSON.stringify({ status: ++audits === 1 ? 'continue' : 'complete', reason: 'fixture', checks: [{ item: 'evidence', passed: true }], next_action: '' }) } }] });
+    }
+  });
+  assert.equal(history.filter(message => message.internal).length, 1);
+});
+
+test('periodic completion stops immediately, including at the tool budget', async () => {
+  for (const maxTools of [5, 80]) {
+    let planning = 0, audits = 0;
+    const history = await chat({ messages: [{ role: 'user', content: 'old task' }, { role: 'user', content: 'current task' }], model: 'fixture', key: 'fixture', maxTools,
+      dispatch: async () => ({ content: [{ type: 'text', text: 'No matching items remain' }] }),
+      fetcher: async (_, options) => {
+        const input = JSON.parse(options.body);
+        if (input.stream) { planning++; return sse([event({ tool_calls: Array.from({length:5},(_,index)=>({index,id:`t${index}`,type:'function',function:{name:'browser_snapshot',arguments:'{}'}})) }), finish]); }
+        audits++; assert.equal(JSON.parse(input.messages[1].content).goal, 'current task');
+        return Response.json({ choices:[{message:{role:'assistant',content:JSON.stringify({status:'complete',reason:'No matching items remain',checks:[{item:'All pages checked',passed:true}],next_action:''})}}] });
+      }
+    });
+    assert.equal(planning, 1); assert.equal(audits, 1); assert.match(history.at(-1).content, /任务已通过验收/);
+  }
 });

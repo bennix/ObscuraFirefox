@@ -83,6 +83,23 @@ this.obscuraNative = class extends ExtensionCommon.ExtensionAPI {
         await SearchService.setDefault(engine, SearchService.CHANGE_REASON.USER);
         return provider[0];
       },
+      async click(tabId, x, y, url) {
+        try {
+        const native = context.extension.tabManager.get(tabId).nativeTab;
+        const browser = native.linkedBrowser;
+        if (!['http', 'https'].includes(browser.currentURI.scheme) || browser.currentURI.spec !== url) throw new ExtensionError('Page changed before click; read the page again');
+        const window = native.documentGlobal;
+        window.gBrowser.selectedTab = native;
+        const rect = browser.getBoundingClientRect();
+        if (!Number.isFinite(x) || !Number.isFinite(y) || x < 0 || y < 0 || x >= rect.width || y >= rect.height) throw new ExtensionError('Click is outside the page viewport');
+        // Route through Gecko input dispatch, including pointer/down/up events.
+        // DOM element.click() skips these and fails for custom menu widgets.
+        window.synthesizeMouseEvent('mousemove', rect.left + x, rect.top + y, { button: 0, clickCount: 1, modifiers: 0 });
+        window.synthesizeMouseEvent('mousedown', rect.left + x, rect.top + y, { button: 0, clickCount: 1, modifiers: 0 });
+        window.synthesizeMouseEvent('mouseup', rect.left + x, rect.top + y, { button: 0, clickCount: 1, modifiers: 0 });
+        return { dispatched: true, verified: false };
+        } catch (error) { console.error('Obscura native click:', error); throw new ExtensionError(error.message); }
+      },
       async pressKey(tabId, key) {
         try {
         const tab = context.extension.tabManager.get(tabId);

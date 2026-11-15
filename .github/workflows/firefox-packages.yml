@@ -73,6 +73,12 @@ jobs:
           mv desktop/dist/portable 'desktop/dist/Obscura 浏览器'
           export OBSCURA_FIREFOX_BIN="$PWD/desktop/dist/Obscura 浏览器/firefox"
           export OBSCURA_TEST_BACKEND="$PWD/desktop/dist/Obscura 浏览器/obscura-desktop"
+          python - <<'PY'
+          import os, pathlib
+          binary = os.environ['OBSCURA_FIREFOX_BIN']
+          pathlib.Path('/tmp/obscura-ci-apparmor').write_text('abi <abi/4.0>,\nprofile obscura-ci "' + binary + '{,-bin}" flags=(unconfined) {\n  userns,\n}\n')
+          PY
+          sudo apparmor_parser -r /tmp/obscura-ci-apparmor
           dbus-run-session -- xvfb-run -a node --test desktop/test/firefox-runtime.test.cjs
           "$OBSCURA_TEST_BACKEND/runtime/media/yt-dlp/yt-dlp_linux" --version
           mv 'desktop/dist/Obscura 浏览器' desktop/dist/portable
@@ -92,7 +98,8 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo gem install fpm --no-document
-          mkdir -p packaging-root/opt packaging-root/usr/bin packaging-root/usr/share/applications packaging-root/usr/share/icons/hicolor/256x256/apps desktop/release
+          mkdir -p packaging-root/opt packaging-root/etc/apparmor.d packaging-root/usr/bin packaging-root/usr/share/applications packaging-root/usr/share/icons/hicolor/256x256/apps desktop/release
+          cp desktop/firefox/linux-apparmor packaging-root/etc/apparmor.d/obscura-firefox
           cp -a desktop/dist/portable packaging-root/opt/obscura-firefox
           ln -s /opt/obscura-firefox/obscura packaging-root/usr/bin/obscura-firefox
           cp desktop/firefox/branding/generated/default256.png packaging-root/usr/share/icons/hicolor/256x256/apps/obscura-firefox.png
@@ -105,8 +112,8 @@ jobs:
           Categories=Network;WebBrowser;
           Terminal=false
           DESKTOP
-          fpm -s dir -t deb -n obscura-firefox -v 0.3.4 --architecture amd64 --license MPL-2.0 --description 'Firefox browser with local AI and media workspace' --url https://github.com/bennix/ObscuraFirefox --maintainer 'Obscura Firefox contributors' -d 'libgtk-3-0 | libgtk-3-0t64' -d libdbus-glib-1-2 -d libsecret-tools -d gnome-keyring -C packaging-root -p desktop/release/ObscuraFirefox-0.3.4-linux-amd64.deb .
-          fpm -s dir -t rpm -n obscura-firefox -v 0.3.4 --architecture x86_64 --license MPL-2.0 --description 'Firefox browser with local AI and media workspace' --url https://github.com/bennix/ObscuraFirefox --maintainer 'Obscura Firefox contributors' -d gtk3 -d dbus-glib -d libsecret -d gnome-keyring -C packaging-root -p desktop/release/ObscuraFirefox-0.3.4-linux-x86_64.rpm .
+          fpm --after-install desktop/firefox/linux-postinstall.sh -s dir -t deb -n obscura-firefox -v 0.3.4 --architecture amd64 --license MPL-2.0 --description 'Firefox browser with local AI and media workspace' --url https://github.com/bennix/ObscuraFirefox --maintainer 'Obscura Firefox contributors' -d 'libgtk-3-0 | libgtk-3-0t64' -d libdbus-glib-1-2 -d libsecret-tools -d gnome-keyring -C packaging-root -p desktop/release/ObscuraFirefox-0.3.4-linux-amd64.deb .
+          fpm --after-install desktop/firefox/linux-postinstall.sh -s dir -t rpm -n obscura-firefox -v 0.3.4 --architecture x86_64 --license MPL-2.0 --description 'Firefox browser with local AI and media workspace' --url https://github.com/bennix/ObscuraFirefox --maintainer 'Obscura Firefox contributors' -d gtk3 -d dbus-glib -d libsecret -d gnome-keyring -C packaging-root -p desktop/release/ObscuraFirefox-0.3.4-linux-x86_64.rpm .
           dpkg-deb --info desktop/release/*.deb
           rpm -qip desktop/release/*.rpm
       - name: Build Windows installer

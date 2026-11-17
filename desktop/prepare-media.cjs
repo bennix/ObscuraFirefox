@@ -9,7 +9,7 @@ async function bundleFFmpeg(source = process.arch === 'x64' ? '/usr/local/bin/ff
   async function collect(original, destination) {
     const real = await fs.realpath(original);
     if (files.has(real)) return;
-    const dependencies = execFileSync('/usr/bin/otool', ['-L', real], { encoding: 'utf8' }).split('\n').slice(1)
+    const dependencies = execFileSync('/usr/bin/otool', ['-L', real], { encoding: 'utf8' }).split('\n').slice(destination.endsWith('.dylib') ? 2 : 1)
       .map(line => line.trim().split(' (compatibility')[0]).filter(name => name.startsWith('/opt/homebrew/') || name.startsWith('/usr/local/'));
     files.set(real, { original: real, destination, dependencies });
     await fs.copyFile(real, destination);
@@ -20,7 +20,6 @@ async function bundleFFmpeg(source = process.arch === 'x64' ? '/usr/local/bin/ff
   for (const file of files.values()) {
     try { execFileSync('/usr/bin/codesign', ['--remove-signature', file.destination], { stdio: 'ignore' }); } catch {}
     const arguments = [];
-    if (file.destination.endsWith('.dylib')) arguments.push('-id', '@rpath/' + path.basename(file.destination));
     for (const dependency of file.dependencies) {
       const prefix = file.destination.endsWith('.dylib') ? '@loader_path/' : '@loader_path/lib/';
       arguments.push('-change', dependency, prefix + path.basename(dependency));

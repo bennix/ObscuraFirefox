@@ -1,0 +1,72 @@
+name: Firefox Intel Mac installer
+on:
+  workflow_run:
+    workflows: [Firefox native source builds]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      source_run:
+        description: Successful Firefox native source build run ID
+        required: true
+permissions:
+  contents: read
+  actions: read
+jobs:
+  package:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: macos-15-intel
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26.13.1'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/download-artifact@v4
+        with:
+          name: firefox-engine-macOS-x64
+          path: engine
+          run-id: ${{ inputs.source_run || github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+      - name: Prepare Intel Mac helpers
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          npm ci --prefix desktop
+          node desktop/prepare-assets.cjs
+          brew install ffmpeg
+          python desktop/firefox/prepare-macos-intel.py
+      - name: Package source-built Intel browser
+        run: |
+          ditto -x -k engine/firefox-macos-x64.zip engine/extracted
+          node desktop/firefox/package.cjs engine/extracted/Obscura.app "$PWD/desktop/dist/Obscura Firefox.app"
+      - name: Verify native browser and media
+        env:
+          OBSCURA_FIREFOX_BIN: ${{ github.workspace }}/desktop/dist/Obscura Firefox.app/Contents/MacOS/firefox
+          OBSCURA_TEST_BACKEND: ${{ github.workspace }}/desktop/dist/Obscura Firefox.app/Contents/Resources/obscura-desktop
+        run: |
+          node --test desktop/test/firefox-runtime.test.cjs desktop/test/firefox-native-click.test.cjs desktop/test/firefox-image-paste-native.test.cjs
+          "$OBSCURA_TEST_BACKEND/runtime/media/ffmpeg" -version
+          python - <<'PY'
+          import pathlib,subprocess
+          root=pathlib.Path('desktop/dist/Obscura Firefox.app')
+          magic={b'\xcf\xfa\xed\xfe',b'\xfe\xed\xfa\xcf',b'\xca\xfe\xba\xbe',b'\xbe\xba\xfe\xca',b'\xce\xfa\xed\xfe'}
+          for file in root.rglob('*'):
+            if not file.is_file() or file.is_symlink():continue
+            with file.open('rb') as stream:header=stream.read(4)
+            if header in magic:
+              assert 'x86_64' in subprocess.check_output(['lipo','-archs',str(file)],text=True),str(file)
+          PY
+      - name: Archive for Developer ID signing and notarization
+        run: |
+          mkdir -p desktop/release
+          ditto -c -k --sequesterRsrc --keepParent 'desktop/dist/Obscura Firefox.app' desktop/release/ObscuraFirefox-0.3.7-macos-x64-unsigned.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installers-macOS-x64
+          path: desktop/release/ObscuraFirefox-0.3.7-macos-x64-unsigned.zip
+          if-no-files-found: error
+          retention-days: 14

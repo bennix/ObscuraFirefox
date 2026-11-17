@@ -34,6 +34,7 @@ jobs:
       - name: Prepare Intel Mac helpers
         env:
           GH_TOKEN: ${{ github.token }}
+          OBSCURA_ENGINE_RUN: ${{ inputs.source_run || github.event.workflow_run.id }}
         run: |
           npm ci --prefix desktop
           node desktop/prepare-assets.cjs
@@ -43,6 +44,8 @@ jobs:
         run: |
           ditto -x -k engine/firefox-macos-x64.zip engine/extracted
           node desktop/firefox/package.cjs engine/extracted/Obscura.app "$PWD/desktop/dist/Obscura Firefox.app"
+      - name: Sign local test bundle
+        run: python desktop/firefox/sign-macos.py "$PWD/desktop/dist/Obscura Firefox.app" --identity -
       - name: Verify native browser and media
         env:
           OBSCURA_FIREFOX_BIN: ${{ github.workspace }}/desktop/dist/Obscura Firefox.app/Contents/MacOS/firefox

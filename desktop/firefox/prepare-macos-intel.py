@@ -2,18 +2,18 @@
 """Stage the Intel Mac runtime for a native Firefox source package."""
 import hashlib
 import json
+import os
 import pathlib
 import shutil
 import subprocess
 import tarfile
 import urllib.request
-import zipfile
 
 repo = pathlib.Path(__file__).resolve().parents[2]
 desktop = repo / 'desktop'
 cache = desktop / 'runtime/macos-intel'
 cache.mkdir(parents=True, exist_ok=True)
-provenance = []
+provenance = [{'engineWorkflowRun': os.environ.get('OBSCURA_ENGINE_RUN'), 'packageWorkflowRun': os.environ.get('GITHUB_RUN_ID'), 'workspaceCommit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=repo, text=True).strip()}]
 
 
 def download(url, name, digest=None):

@@ -20,7 +20,8 @@ with tempfile.TemporaryDirectory() as temp:
  ent=pathlib.Path(temp)/'runtime.plist'
  ent.write_bytes(plistlib.dumps({'com.apple.security.cs.allow-jit':True,'com.apple.security.cs.allow-unsigned-executable-memory':True}))
  def sign(path, executable=False):
-  args=['codesign','--force','--timestamp','--options','runtime','--sign',a.identity]
+  args=['codesign','--force','--sign',a.identity]
+  args+=['--options','0'] if a.identity=='-' else ['--timestamp','--options','runtime']
   if executable:args+=['--entitlements',str(ent)]
   subprocess.run(args+[str(path)],check=True,stdout=subprocess.DEVNULL)
  paths=list(root.rglob('*'))
@@ -34,4 +35,4 @@ with tempfile.TemporaryDirectory() as temp:
    subprocess.run(['codesign','--verify','--deep','--strict',str(f)],check=True)
  sign(root,True)
 subprocess.run(['codesign','--verify','--deep','--strict',str(root)],check=True)
-print('Developer ID signature verified')
+print('Ad-hoc signature verified' if a.identity=='-' else 'Developer ID signature verified')

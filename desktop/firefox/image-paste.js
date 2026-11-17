@@ -1,4 +1,5 @@
 (() => {
+  if (!['http:', 'https:'].includes(location.protocol)) return;
   let activeDialog;
   let replaying = false;
   let currentNotice;

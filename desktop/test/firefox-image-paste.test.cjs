@@ -9,6 +9,8 @@ test('paste chooser converts, preserves originals, cancels and recovers from fai
   const browser = await chromium.launch({ executablePath, headless: true });
   t.after(() => browser.close());
   const page = await browser.newPage();
+  await page.route('https://fixture.obscura.test/**', route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Paste fixture</title>' }));
+  await page.goto('https://fixture.obscura.test/');
   await page.setContent('<form><textarea aria-label="Message"></textarea><input type="file" accept=".pdf,image/*" multiple hidden></form>');
   await page.evaluate(() => {
     // Expose the closed shadow root only in this fixture for UI assertions.
@@ -116,4 +118,19 @@ test('paste chooser converts, preserves originals, cancels and recovers from fai
     assert.equal((await PDFLib.PDFDocument.load(Buffer.from(await page.evaluate(async () => [...new Uint8Array(await dynamicPDF.arrayBuffer())])))).getPageCount(), 1);
     assert.equal(await page.evaluate(() => !!globalThis.__obscuraPendingPDF), false);
   }
+  await page.goto('about:blank');
+  await page.setContent('<textarea></textarea>');
+  await page.addScriptTag({ path: require.resolve('../firefox/image-paste.js') });
+  const localPaste = await page.evaluate(() => {
+    let pasted = false;
+    const editor = document.querySelector('textarea');
+    editor.addEventListener('paste', () => { pasted = true; });
+    const transfer = new DataTransfer();
+    transfer.items.add(new File(['image'], 'local.png', { type: 'image/png' }));
+    editor.dispatchEvent(new ClipboardEvent('paste', { clipboardData: transfer, bubbles: true, cancelable: true, composed: true }));
+    return pasted;
+  });
+  assert.equal(localPaste, true, 'Non-web documents retain their normal paste behavior');
+  assert.equal(await page.locator('dialog').count(), 0);
+
 });

@@ -10,7 +10,11 @@ const { start } = require(path.join(backend, 'firefox/start.cjs'));
 
 test('Firefox pastes a local PDF with Canvas protection enabled', { skip: !process.env.OBSCURA_FIREFOX_BIN, timeout: 90000 }, async t => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'obscura-paste-native-'));
-  const manifest = path.join(os.homedir(), 'Library/Application Support/Mozilla/NativeMessagingHosts/ai.obscura.workspace.json');
+  const manifest = process.platform === 'darwin'
+    ? path.join(os.homedir(), 'Library/Application Support/Mozilla/NativeMessagingHosts/ai.obscura.workspace.json')
+    : process.platform === 'win32'
+      ? path.join(directory, 'NativeMessagingHosts/ai.obscura.workspace.json')
+      : path.join(os.homedir(), '.mozilla/native-messaging-hosts/ai.obscura.workspace.json');
   const previous = await fs.readFile(manifest).catch(() => null);
   let app, savedDirectory;
   const server = http.createServer((request, response) => {
@@ -110,7 +114,7 @@ test('Firefox pastes a local PDF with Canvas protection enabled', { skip: !proce
   assert.match(prefs, /user_pref\("media.peerconnection.enabled", false\)/);
   await app.close(); app = null;
   const { execFileSync } = require('node:child_process');
-  savedDirectory = execFileSync('python3', ['-c', "import sqlite3,sys; db=sqlite3.connect(sys.argv[1]); print(db.execute(\"SELECT prefs.value FROM prefs JOIN settings ON prefs.settingID=settings.id WHERE settings.name='browser.upload.lastDir' ORDER BY prefs.id DESC LIMIT 1\").fetchone()[0])", path.join(directory, 'profile/content-prefs.sqlite')], { encoding: 'utf8' }).trim();
+  savedDirectory = execFileSync(process.platform === 'win32' ? 'python' : 'python3', ['-c', "import sqlite3,sys; db=sqlite3.connect(sys.argv[1]); print(db.execute(\"SELECT prefs.value FROM prefs JOIN settings ON prefs.settingID=settings.id WHERE settings.name='browser.upload.lastDir' ORDER BY prefs.id DESC LIMIT 1\").fetchone()[0])", path.join(directory, 'profile/content-prefs.sqlite')], { encoding: 'utf8' }).trim();
   assert.equal(path.basename(path.dirname(savedDirectory)), 'Obscura PDFs');
   assert.deepEqual(await fs.readdir(savedDirectory), ['clipboard.pdf']);
   assert.equal((await fs.readFile(path.join(savedDirectory, 'clipboard.pdf'))).subarray(0, 5).toString(), '%PDF-');

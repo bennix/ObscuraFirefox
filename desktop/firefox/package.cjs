@@ -26,6 +26,8 @@ async function packageApp(input, output = path.resolve(__dirname, '../dist/Obscu
   }
   const workspaceManifest = JSON.parse(await fs.readFile(path.join(staging, workspaceRelative, 'manifest.json'), 'utf8'));
   if (workspaceManifest.browser_specific_settings?.gecko?.id !== 'workspace@obscura.local') throw new Error('Unexpected built-in workspace identity');
+  await require('./prepare-extension.cjs').prepareExtension(path.join(staging, workspaceRelative));
+  execFileSync('/bin/chmod', ['-R', 'a+rX', path.join(staging, workspaceRelative)]);
   const contents = path.join(staging, 'Contents');
   // Stock Mozilla updates do not contain our built-in workspace or launcher.
   const distribution = path.join(contents, 'Resources/distribution');

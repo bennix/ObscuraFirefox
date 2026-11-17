@@ -78,5 +78,6 @@ for name in ['obscura', 'obscura-worker']:
 
 third_party = desktop / 'third-party'
 shutil.copy2(desktop / f'runtime/node-v{version}-darwin-x64/LICENSE', third_party / 'NODE-LICENSE.txt')
+(third_party / 'YT-DLP-LICENSE.txt').write_bytes(urllib.request.urlopen('https://raw.githubusercontent.com/yt-dlp/yt-dlp/2026.10.26/LICENSE', timeout=60).read())
 (third_party / 'BUILD-SOURCES.json').write_text(json.dumps(provenance, indent=2) + '\n')
 print('Intel Mac helpers staged and checksummed')

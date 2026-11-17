@@ -23,4 +23,9 @@ PY
 xcrun stapler staple "$dmg"
 xcrun stapler validate "$dmg"
 spctl --assess --type open --context context:primary-signature --verbose=2 "$dmg"
-shasum -a 256 "$dmg" > "$dmg.sha256"
+python3 - "$dmg" <<'PYHASH'
+import hashlib, pathlib, sys
+file = pathlib.Path(sys.argv[1])
+digest = hashlib.file_digest(file.open('rb'), 'sha256').hexdigest()
+file.with_name(file.name + '.sha256').write_text(digest + '  ' + file.name + '\n')
+PYHASH

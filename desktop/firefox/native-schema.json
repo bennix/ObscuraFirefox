@@ -83,6 +83,40 @@
             "type": "string"
           }
         ]
+      },
+      {
+        "name": "preparePastedPDF",
+        "type": "function",
+        "async": true,
+        "parameters": [
+          {
+            "name": "tabId",
+            "type": "integer"
+          },
+          {
+            "name": "expectedURL",
+            "type": "string"
+          },
+          {
+            "name": "payload",
+            "type": "string"
+          }
+        ]
+      },
+      {
+        "name": "revealPastedPDF",
+        "type": "function",
+        "async": true,
+        "parameters": [
+          {
+            "name": "tabId",
+            "type": "integer"
+          },
+          {
+            "name": "expectedURL",
+            "type": "string"
+          }
+        ]
       }
     ]
   }

@@ -38,14 +38,16 @@ async function applySource(source) {
   const browserBuild = path.join(source, 'browser/moz.build');
   const buildText = await fs.readFile(browserBuild, 'utf8');
   if (!buildText.includes('DIRS += ["obscura-workspace"]')) await fs.appendFile(browserBuild, '\nDIRS += ["obscura-workspace"]\n');
+  const workspaceVersion = JSON.parse(await fs.readFile(path.join(__dirname, 'manifest.json'), 'utf8')).version;
   const provider = path.join(source, 'toolkit/mozapps/extensions/internal/XPIProvider.sys.mjs');
   let providerText = await fs.readFile(provider, 'utf8');
   const anchor = '      resolveProviderReady(Promise.all(this.startupPromises));';
   if (!providerText.includes('"workspace@obscura.local"')) {
     if (!providerText.includes(anchor)) throw new Error('Firefox addon startup location changed');
-    providerText = providerText.replace(anchor, '      if (Services.prefs.getBoolPref("obscura.workspace.enabled", false)) {\n        const workspaceDirectory = Services.dirsvc.get("GreD", Ci.nsIFile);\n        workspaceDirectory.append("browser");\n        workspaceDirectory.append("obscura-workspace");\n        Services.io.getProtocolHandler("resource").QueryInterface(Ci.nsIResProtocolHandler)\n          .setSubstitution("obscura-workspace", Services.io.newFileURI(workspaceDirectory));\n        this.maybeInstallBuiltinAddon("workspace@obscura.local", "0.3.4", "resource://obscura-workspace/");\n      }\n\n' + anchor);
-    await fs.writeFile(provider, providerText);
+    providerText = providerText.replace(anchor, '      if (Services.prefs.getBoolPref("obscura.workspace.enabled", false)) {\n        const workspaceDirectory = Services.dirsvc.get("GreD", Ci.nsIFile);\n        workspaceDirectory.append("browser");\n        workspaceDirectory.append("obscura-workspace");\n        Services.io.getProtocolHandler("resource").QueryInterface(Ci.nsIResProtocolHandler)\n          .setSubstitution("obscura-workspace", Services.io.newFileURI(workspaceDirectory));\n        this.maybeInstallBuiltinAddon("workspace@obscura.local", "' + workspaceVersion + '", "resource://obscura-workspace/");\n      }\n\n' + anchor);
   }
+  providerText = providerText.replace(/(this\.maybeInstallBuiltinAddon\("workspace@obscura\.local", ")[^"]+(")/, (_, before, after) => before + workspaceVersion + after);
+  await fs.writeFile(provider, providerText);
   const packageManifest = path.join(source, 'browser/installer/package-manifest.in');
   // getActivePolicies returns an object, including when our update policy is
   // active. This release incorrectly treats it as an array in proxy reporting.

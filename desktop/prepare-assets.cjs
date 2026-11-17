@@ -5,6 +5,8 @@ async function prepareAssets() {
   const target = path.join(__dirname, 'extension/vendor');
   await fs.mkdir(target, { recursive: true });
   const assets = [
+    ['pdf-lib/dist/pdf-lib.min.js', 'pdf-lib.js'],
+    ['pdf-lib/LICENSE.md', 'PDF-LIB-LICENSE'],
     ['marked/lib/marked.umd.js', 'marked.js'],
     ['dompurify/dist/purify.min.js', 'purify.js'],
     ['katex/dist/katex.min.js', 'katex.js'],

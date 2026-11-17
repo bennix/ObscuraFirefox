@@ -2,7 +2,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 
-async function bundleFFmpeg(source = '/opt/homebrew/bin/ffmpeg') {
+async function bundleFFmpeg(source = process.arch === 'x64' ? '/usr/local/bin/ffmpeg' : '/opt/homebrew/bin/ffmpeg') {
   const root = path.join(__dirname, 'runtime/media');
   await fs.mkdir(path.join(root, 'lib'), { recursive: true });
   const files = new Map();
@@ -10,7 +10,7 @@ async function bundleFFmpeg(source = '/opt/homebrew/bin/ffmpeg') {
     const real = await fs.realpath(original);
     if (files.has(real)) return;
     const dependencies = execFileSync('/usr/bin/otool', ['-L', real], { encoding: 'utf8' }).split('\n').slice(1)
-      .map(line => line.trim().split(' (compatibility')[0]).filter(name => name.startsWith('/opt/homebrew/'));
+      .map(line => line.trim().split(' (compatibility')[0]).filter(name => name.startsWith('/opt/homebrew/') || name.startsWith('/usr/local/'));
     files.set(real, { original: real, destination, dependencies });
     await fs.copyFile(real, destination);
     await fs.chmod(destination, 0o755);

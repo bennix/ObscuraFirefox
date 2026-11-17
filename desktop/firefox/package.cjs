@@ -13,7 +13,7 @@ async function packageApp(input, output = path.resolve(__dirname, '../dist/Obscu
     packedWorkspace = true;
   }
   const desktop = path.resolve(__dirname, '..');
-  const node = path.join(desktop, 'runtime/node-v26.13.1-darwin-arm64/bin/node');
+  const node = path.join(desktop, `runtime/node-v26.13.1-darwin-${process.arch}/bin/node`);
   await fs.access(node);
   const staging = output + '.building';
   await fs.rm(staging, { recursive: true, force: true });

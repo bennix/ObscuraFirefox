@@ -1,7 +1,8 @@
 var { ExtensionCommon } = ChromeUtils.importESModule('resource://gre/modules/ExtensionCommon.sys.mjs');
 var { ExtensionError } = ChromeUtils.importESModule('resource://gre/modules/ExtensionUtils.sys.mjs');
 var mediaDownloads = new Map();
-Cu.importGlobalProperties(['fetch', 'URL']);
+var pastedPDFs = new Map();
+Cu.importGlobalProperties(['fetch', 'URL', 'atob']);
 this.obscuraNative = class extends ExtensionCommon.ExtensionAPI {
   getAPI(context) {
     const pinPref = 'obscura.workspace.toolbarPinned';
@@ -12,6 +13,40 @@ this.obscuraNative = class extends ExtensionCommon.ExtensionAPI {
       Services.prefs.setBoolPref(pinPref, true);
     }
     return { obscuraNative: {
+      async preparePastedPDF(tabId, expectedURL, payload) {
+        try {
+        const native = context.extension.tabManager.get(tabId).nativeTab;
+        const browser = native.linkedBrowser;
+        if (!['http', 'https'].includes(browser.currentURI.scheme) || new URL(browser.currentURI.spec).origin !== new URL(expectedURL).origin) throw new ExtensionError('网页已切换，请重新粘贴');
+        const spec = browser.currentURI.spec;
+        const loadContext = native.documentGlobal.docShell.QueryInterface(Ci.nsILoadContext);
+        const file = JSON.parse(payload);
+        if (file.mime !== 'application/pdf' || typeof file.data !== 'string' || file.data.length > 45 * 1024 * 1024) throw new ExtensionError('PDF 数据无效或文件过大');
+        const bytes = Uint8Array.from(atob(file.data), value => value.charCodeAt(0));
+        if (String.fromCharCode(...bytes.subarray(0, 5)) !== '%PDF-' || bytes.length > 32 * 1024 * 1024) throw new ExtensionError('PDF 数据无效或文件过大');
+        const { Downloads } = ChromeUtils.importESModule('resource://gre/modules/Downloads.sys.mjs');
+        const id = Services.uuid.generateUUID().toString().replace(/[{}]/g, '');
+        const directory = PathUtils.join(await Downloads.getPreferredDownloadsDirectory(), 'Obscura PDFs', id);
+        const name = String(file.name || '粘贴的图片.pdf').replace(/[\\/:\x00-\x1f]/g, '_').slice(0, 120).replace(/\.pdf$/i, '') + '.pdf';
+        await IOUtils.makeDirectory(directory, { permissions: 0o700, createAncestors: true });
+        const path = PathUtils.join(directory, name);
+        await IOUtils.write(path, bytes, { mode: 'create', permissions: 0o600 });
+        const prefs = Cc['@mozilla.org/content-pref/service;1'].getService(Ci.nsIContentPrefService2);
+        await new Promise((resolve, reject) => prefs.set(spec, 'browser.upload.lastDir', directory, loadContext, {
+          handleCompletion() { resolve(); }, handleError(error) { reject(new ExtensionError('无法设置 PDF 上传目录：' + error)); }
+        }));
+        pastedPDFs.set(tabId, { path, origin: new URL(expectedURL).origin });
+        return { name };
+        } catch (error) { throw new ExtensionError(error.message); }
+      },
+      async revealPastedPDF(tabId, expectedURL) {
+        const browser = context.extension.tabManager.get(tabId).nativeTab.linkedBrowser;
+        const file = pastedPDFs.get(tabId);
+        if (!file || file.origin !== new URL(expectedURL).origin || file.origin !== new URL(browser.currentURI.spec).origin) throw new ExtensionError('请先在当前网站转换 PDF');
+        const local = Cc['@mozilla.org/file/local;1'].createInstance(Ci.nsIFile);
+        local.initWithPath(file.path);
+        local.reveal();
+      },
       async trackMediaDownload(payload) {
         try {
         const { job, folder, bridge } = JSON.parse(payload);

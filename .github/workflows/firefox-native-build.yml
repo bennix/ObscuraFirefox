@@ -8,7 +8,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, windows-2022]
+        os: [ubuntu-24.04, windows-2022, macos-15-intel]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 350
     steps:
@@ -54,6 +54,17 @@ jobs:
           ./mach --no-interactive bootstrap --application-choice browser
           ./mach build
           ./mach package
+      - name: Build Intel macOS from source
+        if: runner.os == 'macOS'
+        working-directory: firefox-source
+        env:
+          MOZBUILD_STATE_PATH: ${{ runner.temp }}/mozbuild
+          MOZ_NOSPAM: '1'
+        run: |
+          ./mach --no-interactive bootstrap --application-choice browser
+          ./mach build
+          ./mach package
+          ditto -c -k --sequesterRsrc --keepParent ../obj-obscura/dist/firefox/Obscura.app ../obj-obscura/dist/firefox-macos-x64.zip
       - name: Build Windows from source
         if: runner.os == 'Windows'
         shell: C:\mozilla-build\msys2\usr\bin\bash.exe -l -e {0}

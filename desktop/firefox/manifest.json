@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Obscura AI Workspace",
-  "version": "0.3.5",
+  "version": "0.3.7",
   "description": "Obscura local AI, browser tools and media downloads",
   "browser_specific_settings": {
     "gecko": {
@@ -20,10 +20,14 @@
     "contextMenus",
     "nativeMessaging",
     "theme",
-    "downloads"
+    "downloads",
+    "scripting"
   ],
   "background": {
     "scripts": [
+      "vendor/pdf-lib.js",
+      "image-pdf.js",
+      "image-paste-background.js",
       "bridge-config.js",
       "search-engines.js",
       "media-sniffer.js",
@@ -59,7 +63,8 @@
         "<all_urls>"
       ],
       "js": [
-        "image-viewer.js"
+        "image-viewer.js",
+        "image-paste.js"
       ],
       "run_at": "document_start"
     },

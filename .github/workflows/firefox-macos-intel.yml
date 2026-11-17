@@ -51,7 +51,7 @@ jobs:
           OBSCURA_FIREFOX_BIN: ${{ github.workspace }}/desktop/dist/Obscura Firefox.app/Contents/MacOS/firefox
           OBSCURA_TEST_BACKEND: ${{ github.workspace }}/desktop/dist/Obscura Firefox.app/Contents/Resources/obscura-desktop
         run: |
-          node --test desktop/test/firefox-runtime.test.cjs desktop/test/firefox-native-click.test.cjs desktop/test/firefox-image-paste-native.test.cjs
+          node --test --test-concurrency=1 desktop/test/firefox-runtime.test.cjs desktop/test/firefox-native-click.test.cjs desktop/test/firefox-image-paste-native.test.cjs
           "$OBSCURA_TEST_BACKEND/runtime/media/ffmpeg" -version
           python - <<'PY'
           import pathlib,subprocess

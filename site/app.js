@@ -7,7 +7,7 @@ fetch('https://api.github.com/repos/bennix/ObscuraFirefox/releases/latest')
   .then(response => response.ok ? response.json() : null)
   .then(release => {
     if (!release) return;
-    const patterns = {mac:/-macos-arm64\.dmg$/,windows:/-windows-x64-setup\.exe$/,deb:/-linux-amd64\.deb$/,rpm:/-linux-x86_64\.rpm$/};
+    const patterns = {mac:/-macos-arm64\.dmg$/,'mac-intel':/-macos-x64\.dmg$/,windows:/-windows-x64-setup\.exe$/,deb:/-linux-amd64\.deb$/,rpm:/-linux-x86_64\.rpm$/};
     const updates = [];
     for (const [platform, pattern] of Object.entries(patterns)) {
       const asset = (release.assets || []).find(item => pattern.test(item.name));

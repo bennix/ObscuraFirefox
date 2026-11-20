@@ -61,4 +61,71 @@ test('Firefox media targeting follows viewport geometry, scrolling and modal occ
   assert.equal(result.context.url, 'https://x.com/one/status/123');
   assert.deepEqual(result.second.media.map(item => item.url), ['https://x.com/two/status/456']);
   assert.deepEqual(result.covered.media, []);
+  await t.test('quality form forwards the selected video and audio format', async () => {
+    const html = await fs.readFile(path.join(__dirname, '../firefox/download-options.html'), 'utf8');
+    const body = html.match(/<body>([\s\S]*)<\/body>/)[1].replace(/<script[\s\S]*?<\/script>/g, '');
+    const script = await fs.readFile(path.join(__dirname, '../firefox/download-options.js'), 'utf8');
+    const form = await app.tools.request('browser_evaluate', { expression: `(async () => {
+      document.body.innerHTML = ${JSON.stringify(body)};
+      const messages = [];
+      const location = { search: '?url=https%3A%2F%2Fx.com%2Fuser%2Fstatus%2F123' };
+      const browser = {
+        i18n: { getUILanguage: () => 'zh-CN' },
+        runtime: { async sendMessage(message) {
+          messages.push(message);
+          if (message.type === 'media-inspect') return { title: 'Video', formats: [
+            { id: '1080+audio', label: '1080p', height: 1080 },
+            { id: '360+audio', label: '360p', height: 360 }
+          ] };
+          return { id: 'media-fixture' };
+        } },
+        obscuraNative: { async openDownloads() {} },
+        tabs: { getCurrent: async () => ({ id: 1 }), async remove() {} }
+      };
+      ${script}
+      await new Promise(resolve => setTimeout(resolve, 10));
+      const options = [...document.getElementById('quality').options].map(option => option.textContent);
+      document.getElementById('quality').value = '360+audio';
+      document.getElementById('download-form').requestSubmit();
+      await new Promise(resolve => setTimeout(resolve, 10));
+      return { options, messages };
+    })()` });
+    assert.equal(form.options.length, 3);
+    assert.equal(form.messages.find(message => message.type === 'native-download').args.format, '360+audio');
+  });
+  await t.test('clear list stays empty until the user scans again', async () => {
+    const html = await fs.readFile(path.join(__dirname, '../extension/panel.html'), 'utf8');
+    const body = html.match(/<body[^>]*>([\s\S]*)<\/body>/)[1].replace(/<script[\s\S]*?<\/script>/g, '');
+    const script = await fs.readFile(path.join(__dirname, '../extension/downloads.js'), 'utf8');
+    const list = await app.tools.request('browser_evaluate', { expression: `(async () => {
+      document.body.innerHTML = ${JSON.stringify(body)};
+      const $ = id => document.getElementById(id);
+      const activeTab = { id: 1 };
+      const target = async () => activeTab;
+      const run = action => action();
+      const status = () => {};
+      let cleared = false;
+      const request = async () => ({ downloads: [], folder: '/tmp/downloads' });
+      const workspace = { async message(message) {
+        if (message.type === 'media-clear') cleared = true;
+        if (message.type === 'media-rescan') cleared = false;
+        return { cleared, media: cleared ? [] : [{ url: 'https://x.com/user/status/123', title: 'Video', kind: 'X', host: 'x.com' }] };
+      } };
+      ${script}
+      await refreshMedia();
+      const before = document.querySelectorAll('.media-card').length;
+      $('media-clear').click();
+      await new Promise(resolve => setTimeout(resolve, 10));
+      await refreshMedia();
+      const afterClear = document.querySelectorAll('.media-card').length;
+      const clearedText = $('media-list').textContent;
+      $('media-refresh').click();
+      await new Promise(resolve => setTimeout(resolve, 10));
+      return { before, afterClear, clearedText, afterScan: document.querySelectorAll('.media-card').length };
+    })()` });
+    assert.equal(list.before, 1);
+    assert.equal(list.afterClear, 0);
+    assert.match(list.clearedText, /重新嗅探/);
+    assert.equal(list.afterScan, 1);
+  });
 });

@@ -347,27 +347,23 @@ async function startNativeDownload(args) {
 }
 browser.runtime.onMessage.addListener(message => {
   if (message.type === 'native-download') return startNativeDownload(message.args);
+  if (message.type === 'media-inspect') return mediaBackend('inspect', { url: message.url });
 });
 const mediaMenuId = 'obscura-download-media';
 const mediaMenuTitle = browser.i18n.getUILanguage().startsWith('zh') ? '下载此媒体 · Obscura' : 'Download this media · Obscura';
-browser.contextMenus.create({ id: mediaMenuId, title: mediaMenuTitle, contexts: ['all'], visible: false,
-  documentUrlPatterns: ['*://x.com/*', '*://twitter.com/*', '*://*.youtube.com/*'] });
-let mediaMenuGeneration = 0;
-browser.contextMenus.onShown.addListener(async (info, tab) => {
-  const generation = ++mediaMenuGeneration;
-  let target;
-  try { target = await browser.tabs.sendMessage(tab.id, { type: 'media-context-target' }, { frameId: info.frameId || 0 }); } catch {}
-  if (generation !== mediaMenuGeneration) return;
-  await browser.contextMenus.update(mediaMenuId, { visible: Boolean(target) });
-  browser.contextMenus.refresh();
-});
-browser.contextMenus.onHidden.addListener(() => { mediaMenuGeneration++; });
+browser.contextMenus.create({ id: mediaMenuId, title: mediaMenuTitle, contexts: ['all'],
+  documentUrlPatterns: ['http://*/*', 'https://*/*'] });
 browser.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId !== mediaMenuId) return;
   try {
     const args = await browser.tabs.sendMessage(tab.id, { type: 'media-context-target' }, { frameId: info.frameId || 0 });
-    await startNativeDownload(args);
-    await browser.tabs.create({ url: 'about:downloads' });
+    if (!args) throw new Error(browser.i18n.getUILanguage().startsWith('zh') ? '请在视频、播放器或视频缩略图上右键下载' : 'Right-click a video, player or video thumbnail to download');
+    if (args.media) {
+      await browser.tabs.create({ url: browser.runtime.getURL('download-options.html') + '?url=' + encodeURIComponent(args.url) });
+    } else {
+      await startNativeDownload(args);
+      await browser.obscuraNative.openDownloads();
+    }
   } catch (error) {
     await browser.tabs.create({ url: browser.runtime.getURL('download-error.html') + '?message=' + encodeURIComponent(error.message) });
   }

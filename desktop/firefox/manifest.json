@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Obscura AI Workspace",
-  "version": "0.3.7",
+  "version": "0.3.8",
   "description": "Obscura local AI, browser tools and media downloads",
   "browser_specific_settings": {
     "gecko": {
@@ -79,14 +79,13 @@
     },
     {
       "matches": [
-        "*://x.com/*",
-        "*://twitter.com/*",
-        "*://*.youtube.com/*"
+        "<all_urls>"
       ],
       "js": [
         "media-context.js"
       ],
-      "run_at": "document_start"
+      "run_at": "document_start",
+      "all_frames": true
     }
   ],
   "content_security_policy": "script-src 'self'; object-src 'none'; connect-src http://127.0.0.1:* ws://127.0.0.1:*; img-src 'self' blob: data: https: http:",

@@ -6,7 +6,7 @@ const source = fs.readFileSync(require('node:path').join(__dirname, '../firefox/
 function fixture(url) {
   let contextMenu, message;
   class Element { closest() { return null; } }
-  vm.runInNewContext(source, { URL, Element, location: new URL(url), document: { addEventListener: (_, callback) => { contextMenu = callback; } }, browser: { runtime: { onMessage: { addListener: callback => { message = callback; } } } } });
+  vm.runInNewContext(source, { URL, Element, location: new URL(url), window: { addEventListener: (type, callback) => { if (type === 'contextmenu') contextMenu = callback; } }, browser: { runtime: { onMessage: { addListener: callback => { message = callback; } } } } });
   return { Element, click: async target => { contextMenu({ target, stopImmediatePropagation() {} }); return message({ type: 'media-context-target' }); } };
 }
 test('YouTube watch and Shorts context resolve canonical video rather than blob', async () => {
@@ -27,7 +27,21 @@ test('X uses original image and the clicked player article, never another feed i
   assert.equal(new URL(photo.url).searchParams.get('name'), 'orig');
   assert.equal(photo.media, false);
   const video = new f.Element();
-  video.closest = selector => selector.includes('videoPlayer') ? {} : selector === 'article' ? { querySelector: selector => selector.endsWith('time') ? null : { href: 'https://x.com/example/status/123' } } : null;
+  video.closest = selector => selector.includes('videoPlayer') ? video : selector === 'article' ? { querySelector: selector => selector.endsWith('time') ? null : { href: 'https://x.com/example/status/123' } } : null;
   assert.equal((await f.click(video)).url, 'https://x.com/example/status/123');
   assert.equal(await f.click(new f.Element()), null);
+});
+test('YouTube thumbnail chooses the clicked video instead of the watch page', async () => {
+  const f = fixture('https://www.youtube.com/watch?v=current');
+  const thumbnail = new f.Element();
+  thumbnail.closest = selector => selector === 'a[href]' ? { href: 'https://www.youtube.com/watch?v=clicked' } : null;
+  assert.equal((await f.click(thumbnail)).url, 'https://www.youtube.com/watch?v=clicked');
+});
+test('generic streamed players use the page URL for blob playback', async () => {
+  const f = fixture('https://example.com/stream/1');
+  const video = new f.Element(); video.currentSrc = 'blob:https://example.com/123';
+  video.closest = selector => selector === 'video, audio' ? video : null;
+  assert.equal((await f.click(video)).url, 'https://example.com/stream/1');
+  video.currentSrc = 'https://cdn.example.com/master.m3u8';
+  assert.equal((await f.click(video)).url, video.currentSrc);
 });

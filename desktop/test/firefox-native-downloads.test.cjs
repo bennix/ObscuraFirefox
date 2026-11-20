@@ -7,6 +7,8 @@ for (const platform of ['posix', 'win32']) test(platform + ': native media saver
   const folder = platform === 'win32' ? 'C:\\媒体 下载' : '/tmp/media';
   const finalPath = paths.join(folder, 'media-test', 'movie.mp4');
   const rows = [], progress = [], requests = [];
+  const downloadTab = {};
+  const browserWindow = { gBrowser: { addTrustedTab(url) { assert.equal(url, 'about:downloads'); return downloadTab; } } };
   let run;
   const jobs = [
     { id: 'media-test', status: 'Downloading', downloaded: 100, size: 400 },
@@ -18,6 +20,7 @@ for (const platform of ['posix', 'win32']) test(platform + ': native media saver
     ChromeUtils: { importGlobalProperties() {}, importESModule(name) {
       if (name.includes('ExtensionCommon')) return { ExtensionCommon: { ExtensionAPI: class {} } };
       if (name.includes('ExtensionUtils')) return { ExtensionError: Error };
+      if (name.includes('BrowserWindowTracker')) return { BrowserWindowTracker: { getTopWindow: () => browserWindow } };
       if (name.includes('Downloads.sys')) return { Downloads };
       if (name.includes('DownloadCore')) return { DownloadSaver: class {} };
       if (name.includes('Timer.sys')) return { setTimeout: callback => setImmediate(callback) };
@@ -28,6 +31,8 @@ for (const platform of ['posix', 'win32']) test(platform + ': native media saver
   vm.createContext(context);
   vm.runInContext(fs.readFileSync(require.resolve('../firefox/native-api.js'), 'utf8'), context);
   const api = new context.obscuraNative().getAPI({}).obscuraNative;
+  await api.openDownloads();
+  assert.equal(browserWindow.gBrowser.selectedTab, downloadTab);
   const data = { job: { id: 'media-test', url: 'https://example.org/media.m3u8' }, folder, bridge: { origin: 'http://127.0.0.1:1234', token: 'test' } };
   await api.trackMediaDownload(JSON.stringify(data)); await run;
   assert.equal(rows.length, 1);

@@ -37,7 +37,7 @@ document.querySelector('.target').after(mediaEntry);
 mediaEntry.onclick = () => document.querySelector('[data-tab="downloads"]').click();
 const nativeDownloadsButton = document.createElement('button');
 nativeDownloadsButton.id = 'native-downloads'; nativeDownloadsButton.textContent = '打开 Firefox 下载列表 ↗';
-nativeDownloadsButton.onclick = () => browser.tabs.create({ url: 'about:downloads' });
+nativeDownloadsButton.onclick = () => browser.obscuraNative.openDownloads();
 document.getElementById('downloads').prepend(nativeDownloadsButton);
 setInterval(async () => {
   try {

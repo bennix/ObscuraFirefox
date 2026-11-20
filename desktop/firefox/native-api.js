@@ -13,6 +13,12 @@ this.obscuraNative = class extends ExtensionCommon.ExtensionAPI {
       Services.prefs.setBoolPref(pinPref, true);
     }
     return { obscuraNative: {
+      async openDownloads() {
+        const { BrowserWindowTracker } = ChromeUtils.importESModule('resource:///modules/BrowserWindowTracker.sys.mjs');
+        const window = BrowserWindowTracker.getTopWindow();
+        if (!window) throw new ExtensionError('No browser window is available');
+        window.gBrowser.selectedTab = window.gBrowser.addTrustedTab('about:downloads');
+      },
       async preparePastedPDF(tabId, expectedURL, payload) {
         try {
         const native = context.extension.tabManager.get(tabId).nativeTab;

@@ -1,4 +1,6 @@
 let detectedMedia = [];
+let mediaRefreshGeneration = 0;
+let renderedMediaSnapshot;
 const selectedMedia = new Set();
 const formatSelections = new Map();
 const availableFormats = new Map();
@@ -39,9 +41,15 @@ async function refreshDownloads() {
 }
 
 async function refreshMedia() {
+  const generation = ++mediaRefreshGeneration;
   await target();
-  const result = await workspace.message({ type: 'media-list', tabId: activeTab.id });
+  const tabId = activeTab.id;
+  const result = await workspace.message({ type: 'media-list', tabId });
+  if (generation !== mediaRefreshGeneration) return;
   detectedMedia = result.media || [];
+  const snapshot = JSON.stringify([tabId, result.cleared, detectedMedia.map(({ detectedAt, ...media }) => media)]);
+  if (snapshot === renderedMediaSnapshot) return;
+  renderedMediaSnapshot = snapshot;
   const valid = new Set(detectedMedia.map(item => item.url));
   for (const url of selectedMedia) if (!valid.has(url)) selectedMedia.delete(url);
   const cards = detectedMedia.map(media => {
@@ -76,7 +84,7 @@ async function refreshMedia() {
     card.append(label, info, url, quality, actions); return card;
   });
   $('media-list').replaceChildren(...cards);
-  if (!cards.length) $('media-list').textContent = '尚未嗅探到媒体。请先在网页播放视频或音频。';
+  if (!cards.length) $('media-list').textContent = result.cleared ? '列表已清空。点击“重新嗅探”继续检测媒体。' : '尚未嗅探到媒体。请先在网页播放视频或音频。';
 }
 
 async function addDetected(media) {
@@ -90,7 +98,22 @@ $('download-form').onsubmit = event => {
     $('download-url').value = ''; await refreshDownloads();
   });
 };
-$('media-refresh').onclick = () => run(refreshMedia);
+$('media-refresh').onclick = () => run(async () => {
+  await target();
+  await workspace.message({ type: 'media-rescan', tabId: activeTab.id });
+  renderedMediaSnapshot = undefined;
+  await refreshMedia();
+});
+$('media-clear').onclick = () => run(async () => {
+  mediaRefreshGeneration++;
+  await target();
+  await workspace.message({ type: 'media-clear', tabId: activeTab.id });
+  selectedMedia.clear();
+  formatSelections.clear();
+  availableFormats.clear();
+  renderedMediaSnapshot = undefined;
+  await refreshMedia();
+});
 $('downloads-refresh').onclick = () => run(refreshDownloads);
 $('downloads-clear').onclick = async () => {
   const button = $('downloads-clear');
@@ -113,5 +136,8 @@ $('media-download-selected').onclick = () => run(async () => {
 });
 document.querySelector('[data-tab="downloads"]').addEventListener('click', () => run(async () => { await refreshDownloads(); await refreshMedia(); }));
 setInterval(() => {
-  if (!$('downloads').hidden) refreshDownloads().catch(error => status(error.message, true));
+  if (!$('downloads').hidden) {
+    refreshDownloads().catch(error => status(error.message, true));
+    refreshMedia().catch(error => status(error.message, true));
+  }
 }, 1500);

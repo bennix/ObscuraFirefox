@@ -3,6 +3,12 @@
     "namespace": "obscuraNative",
     "functions": [
       {
+        "name": "openDownloads",
+        "type": "function",
+        "async": true,
+        "parameters": []
+      },
+      {
         "name": "pressKey",
         "type": "function",
         "async": true,

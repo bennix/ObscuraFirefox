@@ -119,21 +119,21 @@ jobs:
           Categories=Network;WebBrowser;
           Terminal=false
           DESKTOP
-          fpm --after-install desktop/firefox/linux-postinstall.sh -s dir -t deb -n obscura-firefox -v 0.3.7 --architecture amd64 --license MPL-2.0 --description 'Firefox browser with local AI and media workspace' --url https://github.com/bennix/ObscuraFirefox --maintainer 'Obscura Firefox contributors' -d 'libgtk-3-0 | libgtk-3-0t64' -d libdbus-glib-1-2 -d libsecret-tools -d gnome-keyring -C packaging-root -p desktop/release/ObscuraFirefox-0.3.7-linux-amd64.deb .
-          fpm --after-install desktop/firefox/linux-postinstall.sh -s dir -t rpm -n obscura-firefox -v 0.3.7 --architecture x86_64 --license MPL-2.0 --description 'Firefox browser with local AI and media workspace' --url https://github.com/bennix/ObscuraFirefox --maintainer 'Obscura Firefox contributors' -d gtk3 -d dbus-glib -d libsecret -d gnome-keyring -C packaging-root -p desktop/release/ObscuraFirefox-0.3.7-linux-x86_64.rpm .
+          fpm --after-install desktop/firefox/linux-postinstall.sh -s dir -t deb -n obscura-firefox -v 0.3.8 --architecture amd64 --license MPL-2.0 --description 'Firefox browser with local AI and media workspace' --url https://github.com/bennix/ObscuraFirefox --maintainer 'Obscura Firefox contributors' -d 'libgtk-3-0 | libgtk-3-0t64' -d libdbus-glib-1-2 -d libsecret-tools -d gnome-keyring -C packaging-root -p desktop/release/ObscuraFirefox-0.3.8-linux-amd64.deb .
+          fpm --after-install desktop/firefox/linux-postinstall.sh -s dir -t rpm -n obscura-firefox -v 0.3.8 --architecture x86_64 --license MPL-2.0 --description 'Firefox browser with local AI and media workspace' --url https://github.com/bennix/ObscuraFirefox --maintainer 'Obscura Firefox contributors' -d gtk3 -d dbus-glib -d libsecret -d gnome-keyring -C packaging-root -p desktop/release/ObscuraFirefox-0.3.8-linux-x86_64.rpm .
           dpkg-deb --info desktop/release/*.deb
           rpm -qip desktop/release/*.rpm
       - name: Install and verify Linux package
         if: runner.os == 'Linux'
         run: |
-          sudo apt-get install -y ./desktop/release/ObscuraFirefox-0.3.7-linux-amd64.deb
+          sudo apt-get install -y ./desktop/release/ObscuraFirefox-0.3.8-linux-amd64.deb
           export OBSCURA_FIREFOX_BIN=/opt/obscura-firefox/firefox
           export OBSCURA_TEST_BACKEND=/opt/obscura-firefox/obscura-desktop
           dbus-run-session -- xvfb-run -a node --test desktop/test/firefox-runtime.test.cjs
           dbus-run-session -- xvfb-run -a node --test desktop/test/firefox-native-click.test.cjs
           dbus-run-session -- xvfb-run -a node --test desktop/test/firefox-image-paste-native.test.cjs
           mkdir -p /tmp/obscura-rpm-check
-          rpm2cpio desktop/release/ObscuraFirefox-0.3.7-linux-x86_64.rpm | (cd /tmp/obscura-rpm-check && cpio --quiet -id)
+          rpm2cpio desktop/release/ObscuraFirefox-0.3.8-linux-x86_64.rpm | (cd /tmp/obscura-rpm-check && cpio --quiet -id)
           cmp /opt/obscura-firefox/firefox /tmp/obscura-rpm-check/opt/obscura-firefox/firefox
           cmp /opt/obscura-firefox/obscura-desktop/runtime/media/ffmpeg /tmp/obscura-rpm-check/opt/obscura-firefox/obscura-desktop/runtime/media/ffmpeg
       - name: Build Windows installer

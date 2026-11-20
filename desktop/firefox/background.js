@@ -247,14 +247,16 @@ async function localSettings(endpoint) {
 }
 async function proxyRequest(details) {
   const host = new URL(details.url).hostname;
-  if (['127.0.0.1', 'localhost', '[::1]', '::1'].includes(host)) return { type: 'direct' };
+  if (['127.0.0.1', 'localhost', '[::1]', '::1'].includes(host)) return null;
   try {
     const response = await fetch(BRIDGE.origin + '/proxy-route', {
       method: 'POST', headers: { 'X-Obscura-Token': BRIDGE.token, 'Content-Type': 'application/json' },
       body: JSON.stringify({ url: details.url }), signal: AbortSignal.timeout(15000)
     });
     if (!response.ok) throw new Error('Proxy route unavailable');
-    return await response.json();
+    const route = await response.json();
+    // Gecko preserves the startup blocking proxy for {type: 'direct'}. Null explicitly clears it for this request.
+    return route.type === 'direct' ? null : route;
   } catch {
     // Never silently switch a failed proxy route to direct traffic.
     return { type: 'http', host: '127.0.0.1', port: 9 };
@@ -266,8 +268,8 @@ async function applyProxy() {
 browser.webRequest.onAuthRequired.addListener(async details => {
   if (!details.isProxy) return {};
   const auth = await proxyRequest({ url: details.url });
-  if (auth.username && auth.host === details.challenger.host && auth.port === details.challenger.port) return { authCredentials: { username: auth.username, password: auth.password } };
-  if (!auth.username && auth.host === details.challenger.host && auth.port === details.challenger.port &&
+  if (auth?.username && auth.host === details.challenger.host && auth.port === details.challenger.port) return { authCredentials: { username: auth.username, password: auth.password } };
+  if (auth && !auth.username && auth.host === details.challenger.host && auth.port === details.challenger.port &&
       ['localhost', '127.0.0.1', '[::1]', '::1'].includes(auth.host)) return { cancel: true };
   return {};
 }, { urls: ['<all_urls>'] }, ['blocking']);

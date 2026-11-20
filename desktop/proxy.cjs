@@ -28,11 +28,12 @@ function parseSystemProxy(text, target) {
 }
 
 class ProxyTransport {
-  constructor(settings, { readSystemProxy = require('./system-proxy.cjs').readNativeSystemProxy, readLocalProxy = require('./local-proxy.cjs').readLocalProxy, environmentProxy = require('proxy-from-env').getProxyForUrl } = {}) {
+  constructor(settings, { readSystemProxy = require('./system-proxy.cjs').readNativeSystemProxy, readLocalProxy = require('./local-proxy.cjs').readLocalProxy, readTunnel = require('./system-proxy.cjs').usesSystemTunnel, environmentProxy = require('proxy-from-env').getProxyForUrl } = {}) {
     this.settings = settings;
     this.readSystemProxy = readSystemProxy;
     this.readLocalProxy = readLocalProxy;
     this.environmentProxy = environmentProxy;
+    this.readTunnel = readTunnel;
     this.cachedAt = 0;
     this.agent = new ProxyAgent({ getProxyForUrl: url => this.resolve(url) });
   }
@@ -54,13 +55,14 @@ class ProxyTransport {
     }
     if (Date.now() - this.cachedAt > 3000) {
       this.refresh ||= (async () => {
-        this.system = await this.readSystemProxy();
+        [this.system, this.tunnel] = await Promise.all([this.readSystemProxy(), this.readTunnel()]);
         this.cachedAt = Date.now();
       })().finally(() => { this.refresh = null; });
       await this.refresh;
     }
     const system = parseSystemProxy(this.system, url);
     if (system) return this.adaptAutomaticRoute(system);
+    if (this.tunnel) return '';
     // An explicit NO_PROXY decision must also bypass local auto detection.
     if (['HTTP_PROXY','HTTPS_PROXY','ALL_PROXY','http_proxy','https_proxy','all_proxy'].some(key => process.env[key])) return this.adaptAutomaticRoute(this.environmentProxy(url).replace(/^socks5:/, 'socks5h:'));
     if (!this.localAt || Date.now() - this.localAt > 3000) {
@@ -80,6 +82,7 @@ class ProxyTransport {
       if (await available(route)) return route;
       const socks = route.replace(/^http:/, 'socks5h:');
       if (await available(socks)) return socks;
+      if (this.tunnel) return '';
       const active = await this.readLocalProxy();
       return active || route;
     })();

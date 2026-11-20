@@ -32,3 +32,21 @@ async function readNativeSystemProxy({ platform = process.platform, run = execut
   return dictionary(values);
 }
 module.exports = { readNativeSystemProxy };
+
+// Query the kernel routing table without sending any packets to the lookup address.
+async function usesSystemTunnel({ platform = process.platform, run = execute, readFile = require('node:fs/promises').readFile } = {}) {
+  try {
+    if (platform === 'darwin') {
+      const { stdout } = await run('/sbin/route', ['-n', 'get', '192.0.2.1'], { timeout: 1500 });
+      return /^\s*interface:\s*(?:utun|tun|ppp)\d+\s*$/m.test(stdout);
+    }
+    if (platform === 'linux') {
+      const { stdout } = await run('ip', ['-j', 'route', 'get', '192.0.2.1', 'ipproto', 'tcp', 'dport', '443'], { timeout: 1500 });
+      const dev = JSON.parse(stdout)[0]?.dev;
+      if (!dev || !/^[\w-]+$/.test(dev)) return false;
+      return Boolean(parseInt(await readFile('/sys/class/net/' + dev + '/tun_flags', 'utf8'), 16) & 1);
+    }
+  } catch {}
+  return false;
+}
+module.exports.usesSystemTunnel = usesSystemTunnel;

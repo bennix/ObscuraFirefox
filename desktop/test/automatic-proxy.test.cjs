@@ -5,14 +5,14 @@ const { readLocalProxy, configuredEndpoints } = require('../local-proxy.cjs');
 const empty = '<dictionary> {\n}';
 test('automatic routes prioritize system and preserve browser SOCKS remote DNS', async () => {
   const transport = new ProxyTransport({ read: async () => ({}) }, {
-    readSystemProxy: async () => '<dictionary> {\n SOCKSEnable : 1\n SOCKSProxy : 127.0.0.1\n SOCKSPort : 1081\n}',
+    readTunnel: async () => false, readSystemProxy: async () => '<dictionary> {\n SOCKSEnable : 1\n SOCKSProxy : 127.0.0.1\n SOCKSPort : 1081\n}',
     readLocalProxy: async () => 'http://127.0.0.1:7890', environmentProxy: () => 'http://127.0.0.1:8888'
   });
   try { assert.deepEqual(await transport.browserRoute('https://chatgpt.com'), { type: 'socks', host: '127.0.0.1', port: 1081, proxyDNS: true, username: '', password: '' }); }
   finally { transport.close(); }
 });
 test('manual proxy stays authoritative', async () => {
-  const transport = new ProxyTransport({ read: async () => ({ proxy: { mode: 'manual' } }), proxyURL: async () => 'http://127.0.0.1:9000' }, { readSystemProxy: async () => { throw Error('must not inspect'); } });
+  const transport = new ProxyTransport({ read: async () => ({ proxy: { mode: 'manual' } }), proxyURL: async () => 'http://127.0.0.1:9000' }, { readTunnel: async () => false, readSystemProxy: async () => { throw Error('must not inspect'); } });
   try { assert.equal((await transport.browserRoute('https://claude.ai')).port, 9000); } finally { transport.close(); }
 });
 for (const platform of ['darwin', 'linux', 'win32']) test(`${platform} recognizes running core config without scanning ports`, async () => {
@@ -27,7 +27,7 @@ test('local detection refuses ambiguous active clients', async () => {
 });
 test('system lookup is single-flight during parallel browser requests', async () => {
   let count = 0;
-  const transport = new ProxyTransport({ read: async () => ({}) }, { readSystemProxy: async () => { count++; return empty; }, readLocalProxy: async () => '' });
+  const transport = new ProxyTransport({ read: async () => ({}) }, { readTunnel: async () => false, readSystemProxy: async () => { count++; return empty; }, readLocalProxy: async () => '' });
   try { await Promise.all(Array.from({ length: 20 }, () => transport.resolve('https://example.com'))); assert.equal(count, 1); } finally { transport.close(); }
 });
 
@@ -38,7 +38,7 @@ test('an active configured local core with an unavailable listener never selects
 test('environment SOCKS5 routing keeps DNS at the proxy for backend and browser', async () => {
   const previous = process.env.ALL_PROXY;
   process.env.ALL_PROXY = 'socks5://127.0.0.1:1082';
-  const transport = new ProxyTransport({ read: async () => ({}) }, { readSystemProxy: async () => empty, environmentProxy: () => process.env.ALL_PROXY, readLocalProxy: async () => { throw Error('environment must win'); } });
+  const transport = new ProxyTransport({ read: async () => ({}) }, { readTunnel: async () => false, readSystemProxy: async () => empty, environmentProxy: () => process.env.ALL_PROXY, readLocalProxy: async () => { throw Error('environment must win'); } });
   try {
     assert.equal(await transport.resolve('https://chatgpt.com'), 'socks5h://127.0.0.1:1082');
     assert.equal((await transport.browserRoute('https://chatgpt.com')).proxyDNS, true);
@@ -67,11 +67,21 @@ test('system proxy selects an accessible anonymous desktop listener after an HTT
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const port = server.address().port;
   const transport = new ProxyTransport({ read: async () => ({}) }, {
-    readSystemProxy: async () => '<dictionary> {\n HTTPSEnable : 1\n HTTPSProxy : 127.0.0.1\n HTTPSPort : ' + port + '\n}',
+    readTunnel: async () => false, readSystemProxy: async () => '<dictionary> {\n HTTPSEnable : 1\n HTTPSProxy : 127.0.0.1\n HTTPSPort : ' + port + '\n}',
     readLocalProxy: async () => 'http://127.0.0.1:20001'
   });
   try {
     assert.deepEqual(configuredEndpoints('{"mixed-port":20001,"authentication":[]}'), ['http://127.0.0.1:20001','socks5h://127.0.0.1:20001']);
     assert.equal((await transport.browserRoute('https://www.google.com')).port, 20001);
   } finally { transport.close(); await new Promise(resolve => server.close(resolve)); }
+});
+
+test('active OS tunnel takes priority over private proxy cores and inherited environment', async () => {
+  const transport = new ProxyTransport({ read: async () => ({}) }, {
+    readSystemProxy: async () => empty, readTunnel: async () => true,
+    environmentProxy: () => { throw Error('unexpected environment proxy'); },
+    readLocalProxy: () => { throw Error('unexpected private core'); }
+  });
+  try { assert.equal((await transport.browserRoute('https://bennix.github.io')).type, 'direct'); }
+  finally { transport.close(); }
 });

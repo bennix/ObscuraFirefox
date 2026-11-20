@@ -82,6 +82,7 @@ jobs:
           dbus-run-session -- xvfb-run -a node --test desktop/test/firefox-runtime.test.cjs
           dbus-run-session -- xvfb-run -a node --test desktop/test/firefox-native-click.test.cjs
           dbus-run-session -- xvfb-run -a node --test desktop/test/firefox-image-paste-native.test.cjs
+          dbus-run-session -- xvfb-run -a node --test desktop/test/firefox-media-viewport-native.test.cjs
           "$OBSCURA_TEST_BACKEND/runtime/media/yt-dlp/yt-dlp_linux" --version
           mv 'desktop/dist/Obscura 浏览器' desktop/dist/portable
       - name: Verify native Windows browser and media
@@ -97,6 +98,7 @@ jobs:
           node --test desktop/test/firefox-native-click.test.cjs
           if ($LASTEXITCODE -ne 0) { throw 'Native pointer and refresh tests failed' }
           node --test desktop/test/firefox-image-paste-native.test.cjs
+          node --test desktop/test/firefox-media-viewport-native.test.cjs
           if ($LASTEXITCODE -ne 0) { throw 'Private PDF paste and upload directory tests failed' }
           & "$env:OBSCURA_TEST_BACKEND/runtime/media/yt-dlp/yt-dlp.exe" --version
           if ($LASTEXITCODE -ne 0) { throw 'yt-dlp verification failed' }
@@ -132,6 +134,7 @@ jobs:
           dbus-run-session -- xvfb-run -a node --test desktop/test/firefox-runtime.test.cjs
           dbus-run-session -- xvfb-run -a node --test desktop/test/firefox-native-click.test.cjs
           dbus-run-session -- xvfb-run -a node --test desktop/test/firefox-image-paste-native.test.cjs
+          dbus-run-session -- xvfb-run -a node --test desktop/test/firefox-media-viewport-native.test.cjs
           mkdir -p /tmp/obscura-rpm-check
           rpm2cpio desktop/release/ObscuraFirefox-0.3.8-linux-x86_64.rpm | (cd /tmp/obscura-rpm-check && cpio --quiet -id)
           cmp /opt/obscura-firefox/firefox /tmp/obscura-rpm-check/opt/obscura-firefox/firefox

@@ -50,8 +50,8 @@ async function start(options = {}) {
     const defaults = (await fs.readFile(path.join(__dirname, 'privacy-prefs.js'), 'utf8')).replace('pref("privacy.resistFingerprinting.exemptedDomains", "");', `pref("privacy.resistFingerprinting.exemptedDomains", ${JSON.stringify(config.authCompatibility ? 'x.com,*.x.com' : '')});`);
     const prefs = defaults.replace(/^pref\(/gm, 'user_pref(') + '\n' + [
       ['browser.shell.checkDefaultBrowser', false],
-      // Block external startup traffic until the extension applies a manual
-      // proxy. The local backend remains reachable for authenticated setup.
+      // Block external startup traffic until the extension installs the shared
+      // proxy resolver. The local backend remains reachable for authenticated setup.
       ['network.proxy.type', 1],
       ['network.proxy.http', ''],
       ['network.proxy.ssl', ''],

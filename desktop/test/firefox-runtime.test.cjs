@@ -19,6 +19,7 @@ test('source-built Firefox supports native tabs, AI actions, uploads, media dete
   let previousManifest;
   try { previousManifest = await fs.readFile(nativeManifest); } catch (error) { if (error.code !== 'ENOENT') throw error; }
   let app;
+  let fixtureProxy = null;
   const hls = path.join(directory, 'hls'); await fs.mkdir(hls);
   execFileSync(path.join(backendRoot, 'runtime/media', process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg'), ['-y','-f','lavfi','-i','testsrc2=size=160x90:rate=10','-t','4','-c:v','libx264','-force_key_frames','expr:gte(t,n_forced*1)','-hls_time','1','-hls_playlist_type','vod','-hls_segment_filename',path.join(hls,'part%03d.ts'),path.join(hls,'test.m3u8')], { stdio:'ignore' });
   const server = http.createServer((req, res) => {
@@ -36,7 +37,7 @@ test('source-built Firefox supports native tabs, AI actions, uploads, media dete
     await fs.rm(directory, { recursive: true, force: true });
   });
   const url = `http://127.0.0.1:${server.address().port}/`;
-  app = await start({ binary: process.env.OBSCURA_FIREFOX_BIN, directory, testing: true, url, settings: { read: async () => ({ searchEngine: 'google', theme: 'dark', proxy: { mode: 'system' } }) } });
+  app = await start({ binary: process.env.OBSCURA_FIREFOX_BIN, directory, testing: true, url, settings: { read: async () => ({ searchEngine: 'google', theme: 'dark', proxy: { mode: fixtureProxy ? 'manual' : 'system' } }), proxyURL: async () => fixtureProxy } });
   const deadline = Date.now() + 60000;
   while (!app.tools.browserClient.open && Date.now() < deadline) await pause(250);
   assert.equal(app.tools.browserClient.open, true, 'Built-in workspace must connect without debugging flags');
@@ -156,4 +157,23 @@ test('source-built Firefox supports native tabs, AI actions, uploads, media dete
   assert.ok(tabs.some(tab => tab.id === original));
   assert.ok(!tabs.some(tab => tab.id === added.id));
   });
+  await t.test('native webpage uses backend proxy route and remote hostname resolution', async () => {
+    const requests = [];
+    const proxy = http.createServer((req, res) => {
+      requests.push(req.url);
+      res.setHeader('Content-Type', 'text/html');
+      res.end('<title>Proxy route verified</title><h1>Proxy fixture</h1>');
+    });
+    proxy.on('connect', (req, socket) => { requests.push(req.url); socket.end('HTTP/1.1 502 Fixture tunnel observed\r\nContent-Length: 0\r\n\r\n'); });
+    await new Promise(resolve => proxy.listen(0, '127.0.0.1', resolve));
+    fixtureProxy = `http://127.0.0.1:${proxy.address().port}`;
+    try {
+      await pause(3200);
+      await app.tools.call('browser_navigate', { url: 'https://obscura-proxy-fixture.invalid/check' });
+      const deadline = Date.now() + 10000;
+      while (!requests.some(url => url === 'obscura-proxy-fixture.invalid:443') && Date.now() < deadline) await pause(100);
+      assert.ok(requests.includes('obscura-proxy-fixture.invalid:443'));
+    } finally { fixtureProxy = null; proxy.closeAllConnections(); await new Promise(resolve => proxy.close(resolve)); }
+  });
+
 });

@@ -46,6 +46,7 @@ async function readLocalProxy({ platform = process.platform, run = execute, read
     }
   } catch { return ''; }
   const routes = new Set();
+  let configured = false;
   for (const command of commands) {
     if (!command) continue;
     const match = command.match(/(?:^|\s)(?:-f|--config|-c)\s+(?:"([^"]+)"|'([^']+)'|(.+?))(?=\s+--?\w|$)/);
@@ -55,11 +56,14 @@ async function readLocalProxy({ platform = process.platform, run = execute, read
     try {
       const text = await readFile(file, 'utf8');
       if (Buffer.byteLength(text) > 4194304) continue;
-      for (const route of configuredEndpoints(text)) {
+      const endpoints = configuredEndpoints(text);
+      configured ||= endpoints.length > 0;
+      for (const route of endpoints) {
         if (await probe(route)) { routes.add(route); break; }
       }
     } catch {}
   }
+  if (configured && !routes.size) throw new Error('本地代理正在运行但无法连接，请检查代理状态');
   if (routes.size > 1) throw new Error('检测到多个本地代理，请在网络设置中选择手动代理');
   return [...routes][0] || '';
 }

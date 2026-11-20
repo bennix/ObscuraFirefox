@@ -30,3 +30,7 @@ test('system lookup is single-flight during parallel browser requests', async ()
   const transport = new ProxyTransport({ read: async () => ({}) }, { readSystemProxy: async () => { count++; return empty; }, readLocalProxy: async () => '' });
   try { await Promise.all(Array.from({ length: 20 }, () => transport.resolve('https://example.com'))); assert.equal(count, 1); } finally { transport.close(); }
 });
+
+test('an active configured local core with an unavailable listener never selects direct', async () => {
+  await assert.rejects(readLocalProxy({ run: async () => ({ stdout: '/usr/bin/mihomo -f /fixture/config.yaml' }), readFile: async () => 'mixed-port: 7890', probe: async () => false }), /无法连接/);
+});

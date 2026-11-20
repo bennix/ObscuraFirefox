@@ -8,15 +8,18 @@ const execute = promisify(execFile);
 // Inspect only running, recognized cores and their explicitly selected config files.
 function configuredEndpoints(text) {
   const endpoints = [];
+  let config;
+  try { config = JSON.parse(text); } catch {}
   for (const [key, scheme] of [['mixed-port', 'http'], ['port', 'http'], ['socks-port', 'socks5h']]) {
     const match = text.match(new RegExp('^' + key + ':\\s*(\\d+)\\s*(?:#.*)?$', 'm'));
-    if (match && +match[1] > 0 && +match[1] <= 65535) {
-      endpoints.push(`${scheme}://127.0.0.1:${+match[1]}`);
-      if (key === 'mixed-port') endpoints.push(`socks5h://127.0.0.1:${+match[1]}`);
+    const port = config?.[key] ?? Number(match?.[1]);
+    if (Number.isInteger(port) && port > 0 && port <= 65535) {
+      endpoints.push(`${scheme}://127.0.0.1:${port}`);
+      if (key === 'mixed-port') endpoints.push(`socks5h://127.0.0.1:${port}`);
     }
   }
   try {
-    for (const inbound of JSON.parse(text).inbounds || []) {
+    for (const inbound of config?.inbounds || []) {
       const scheme = { mixed: 'http', http: 'http', socks: 'socks5h' }[inbound.type || inbound.protocol];
       const port = inbound.listen_port || inbound.port;
       if (scheme && Number.isInteger(port) && port > 0 && port <= 65535 && ['127.0.0.1', '::1', 'localhost'].includes(inbound.listen || '127.0.0.1')) endpoints.push(`${scheme}://127.0.0.1:${port}`);
@@ -27,7 +30,7 @@ function configuredEndpoints(text) {
 function available(endpoint) {
   return new Promise(resolve => {
     const url = new URL(endpoint);
-    const socket = net.connect({ host: url.hostname, port: +url.port });
+    const socket = net.connect({ host: url.hostname.replace(/^\[|\]$/g, ''), port: +(url.port || 80) });
     let done = false;
     const finish = value => { if (!done) { done = true; socket.destroy(); resolve(value); } };
     socket.setTimeout(700, () => finish(false));
@@ -70,4 +73,4 @@ async function readLocalProxy({ platform = process.platform, run = execute, read
   if (routes.size > 1) throw new Error('检测到多个本地代理，请在网络设置中选择手动代理');
   return [...routes][0] || '';
 }
-module.exports = { readLocalProxy, configuredEndpoints };
+module.exports = { readLocalProxy, configuredEndpoints, available };

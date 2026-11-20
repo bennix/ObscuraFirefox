@@ -58,3 +58,20 @@ test('mixed listener offering HTTP 407 and anonymous SOCKS5 selects SOCKS5', asy
     assert.equal(route, 'socks5h://127.0.0.1:' + port);
   } finally { await new Promise(resolve => server.close(resolve)); }
 });
+
+test('system proxy selects an accessible anonymous desktop listener after an HTTP challenge', async () => {
+  const net = require('node:net');
+  const server = net.createServer(socket => socket.once('data', data => {
+    socket.end(data[0] === 5 ? Buffer.from([5, 255]) : 'HTTP/1.1 407 Proxy Authentication Required\r\n\r\n');
+  }));
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const port = server.address().port;
+  const transport = new ProxyTransport({ read: async () => ({}) }, {
+    readSystemProxy: async () => '<dictionary> {\n HTTPSEnable : 1\n HTTPSProxy : 127.0.0.1\n HTTPSPort : ' + port + '\n}',
+    readLocalProxy: async () => 'http://127.0.0.1:20001'
+  });
+  try {
+    assert.deepEqual(configuredEndpoints('{"mixed-port":20001,"authentication":[]}'), ['http://127.0.0.1:20001','socks5h://127.0.0.1:20001']);
+    assert.equal((await transport.browserRoute('https://www.google.com')).port, 20001);
+  } finally { transport.close(); await new Promise(resolve => server.close(resolve)); }
+});

@@ -60,14 +60,31 @@ class ProxyTransport {
       await this.refresh;
     }
     const system = parseSystemProxy(this.system, url);
-    if (system) return system;
+    if (system) return this.adaptAutomaticRoute(system);
     // An explicit NO_PROXY decision must also bypass local auto detection.
-    if (['HTTP_PROXY','HTTPS_PROXY','ALL_PROXY','http_proxy','https_proxy','all_proxy'].some(key => process.env[key])) return this.environmentProxy(url).replace(/^socks5:/, 'socks5h:');
+    if (['HTTP_PROXY','HTTPS_PROXY','ALL_PROXY','http_proxy','https_proxy','all_proxy'].some(key => process.env[key])) return this.adaptAutomaticRoute(this.environmentProxy(url).replace(/^socks5:/, 'socks5h:'));
     if (!this.localAt || Date.now() - this.localAt > 3000) {
       this.localRefresh ||= this.readLocalProxy().then(value => { this.local = value; this.localAt = Date.now(); }).finally(() => { this.localRefresh = null; });
       await this.localRefresh;
     }
     return this.local || '';
+  }
+
+  async adaptAutomaticRoute(route) {
+    if (!route.startsWith('http://')) return route;
+    const endpoint = new URL(route);
+    if (endpoint.username || endpoint.password || !['127.0.0.1', 'localhost', '[::1]'].includes(endpoint.hostname)) return route;
+    if (this.checkedRoute?.route === route && Date.now() < this.checkedRoute.until) return this.checkedRoute.result;
+    const result = (async () => {
+      const { available } = require('./local-proxy.cjs');
+      if (await available(route)) return route;
+      const socks = route.replace(/^http:/, 'socks5h:');
+      if (await available(socks)) return socks;
+      const active = await this.readLocalProxy();
+      return active || route;
+    })();
+    this.checkedRoute = { route, result, until: Date.now() + 3000 };
+    return result;
   }
 
   async browserRoute(url) {

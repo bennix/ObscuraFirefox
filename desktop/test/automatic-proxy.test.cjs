@@ -34,3 +34,13 @@ test('system lookup is single-flight during parallel browser requests', async ()
 test('an active configured local core with an unavailable listener never selects direct', async () => {
   await assert.rejects(readLocalProxy({ run: async () => ({ stdout: '/usr/bin/mihomo -f /fixture/config.yaml' }), readFile: async () => 'mixed-port: 7890', probe: async () => false }), /无法连接/);
 });
+
+test('environment SOCKS5 routing keeps DNS at the proxy for backend and browser', async () => {
+  const previous = process.env.ALL_PROXY;
+  process.env.ALL_PROXY = 'socks5://127.0.0.1:1082';
+  const transport = new ProxyTransport({ read: async () => ({}) }, { readSystemProxy: async () => empty, environmentProxy: () => process.env.ALL_PROXY, readLocalProxy: async () => { throw Error('environment must win'); } });
+  try {
+    assert.equal(await transport.resolve('https://chatgpt.com'), 'socks5h://127.0.0.1:1082');
+    assert.equal((await transport.browserRoute('https://chatgpt.com')).proxyDNS, true);
+  } finally { transport.close(); if (previous === undefined) delete process.env.ALL_PROXY; else process.env.ALL_PROXY = previous; }
+});

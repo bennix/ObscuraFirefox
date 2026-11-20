@@ -62,7 +62,7 @@ class ProxyTransport {
     const system = parseSystemProxy(this.system, url);
     if (system) return system;
     // An explicit NO_PROXY decision must also bypass local auto detection.
-    if (['HTTP_PROXY','HTTPS_PROXY','ALL_PROXY','http_proxy','https_proxy','all_proxy'].some(key => process.env[key])) return this.environmentProxy(url);
+    if (['HTTP_PROXY','HTTPS_PROXY','ALL_PROXY','http_proxy','https_proxy','all_proxy'].some(key => process.env[key])) return this.environmentProxy(url).replace(/^socks5:/, 'socks5h:');
     if (!this.localAt || Date.now() - this.localAt > 3000) {
       this.localRefresh ||= this.readLocalProxy().then(value => { this.local = value; this.localAt = Date.now(); }).finally(() => { this.localRefresh = null; });
       await this.localRefresh;

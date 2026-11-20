@@ -52,7 +52,7 @@ async function start(options = {}) {
       ['browser.shell.checkDefaultBrowser', false],
       // Block external startup traffic until the extension applies a manual
       // proxy. The local backend remains reachable for authenticated setup.
-      ['network.proxy.type', config.proxy?.mode === 'manual' ? 1 : 5],
+      ['network.proxy.type', 1],
       ['network.proxy.http', ''],
       ['network.proxy.ssl', ''],
       ['network.proxy.socks', '127.0.0.1'],

@@ -245,38 +245,27 @@ async function localSettings(endpoint) {
   if (!response.ok) throw new Error('本地网络配置读取失败');
   return response.json();
 }
-let proxyConfiguration;
-let manualProxy;
-function proxyRequest(details) {
+async function proxyRequest(details) {
   const host = new URL(details.url).hostname;
   if (['127.0.0.1', 'localhost', '[::1]', '::1'].includes(host)) return { type: 'direct' };
-  const proxy = manualProxy;
-  if (!proxy) throw new Error('Proxy configuration unavailable');
-  const type = proxy.scheme === 'socks5' ? 'socks' : proxy.scheme;
-  return { type, host: proxy.host, port: proxy.port, proxyDNS: type === 'socks',
-    ...(['socks', 'socks4'].includes(type) ? { username: proxy.username || '', password: proxy.password || '' } : {}) };
+  try {
+    const response = await fetch(BRIDGE.origin + '/proxy-route', {
+      method: 'POST', headers: { 'X-Obscura-Token': BRIDGE.token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: details.url }), signal: AbortSignal.timeout(15000)
+    });
+    if (!response.ok) throw new Error('Proxy route unavailable');
+    return await response.json();
+  } catch {
+    // Never silently switch a failed proxy route to direct traffic.
+    return { type: 'http', host: '127.0.0.1', port: 9 };
+  }
 }
 async function applyProxy() {
-  const config = await localSettings('/proxy-config');
-  const auth = config.mode === 'fixed_servers' && config.rules.singleProxy.scheme.startsWith('socks') ? await localSettings('/proxy-auth') : null;
-  const serialized = JSON.stringify({ config, auth });
-  if (serialized === proxyConfiguration) return;
-  if (config.mode === 'fixed_servers') {
-    const proxy = config.rules.singleProxy;
-    if (!['http', 'https', 'socks5', 'socks4'].includes(proxy.scheme)) throw new Error('不支持的代理类型');
-    if (auth && (auth.host !== proxy.host || auth.port !== proxy.port)) throw new Error('代理配置正在变更，请稍候重试');
-    manualProxy = { ...proxy, ...(auth ? { username: auth.username, password: auth.password } : {}) };
-    if (!browser.proxy.onRequest.hasListener(proxyRequest)) browser.proxy.onRequest.addListener(proxyRequest, { urls: ['<all_urls>'] });
-  } else {
-    await browser.proxy.settings.set({ value: { proxyType: 'system' } });
-    if (browser.proxy.onRequest.hasListener(proxyRequest)) browser.proxy.onRequest.removeListener(proxyRequest);
-    manualProxy = null;
-  }
-  proxyConfiguration = serialized;
+  if (!browser.proxy.onRequest.hasListener(proxyRequest)) browser.proxy.onRequest.addListener(proxyRequest, { urls: ['<all_urls>'] });
 }
 browser.webRequest.onAuthRequired.addListener(async details => {
   if (!details.isProxy) return {};
-  const auth = await localSettings('/proxy-auth');
+  const auth = await proxyRequest({ url: details.url });
   if (auth.username && auth.host === details.challenger.host && auth.port === details.challenger.port) return { authCredentials: { username: auth.username, password: auth.password } };
   return {};
 }, { urls: ['<all_urls>'] }, ['blocking']);

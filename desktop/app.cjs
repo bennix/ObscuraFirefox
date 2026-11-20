@@ -108,6 +108,7 @@ async function launch(options = {}) {
       req.setEncoding('utf8');
       for await (const chunk of req) { body += chunk; if (body.length > 64000000) throw new Error('请求过大'); }
       const input = JSON.parse(body || '{}');
+      if (req.url === '/proxy-route') { send(200, await transport.browserRoute(String(input.url))); return; }
       if (req.url === '/diagnostics/open') {
         await diagnostics.flush();
         const child = spawn(process.platform === 'darwin' ? '/usr/bin/open' : process.platform === 'win32' ? 'notepad.exe' : 'xdg-open', process.platform === 'darwin' ? ['-t', diagnostics.file] : [diagnostics.file], { stdio: 'ignore', windowsHide: true });

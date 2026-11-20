@@ -28,26 +28,67 @@ function parseSystemProxy(text, target) {
 }
 
 class ProxyTransport {
-  constructor(settings, { readSystemProxy = require('./system-proxy.cjs').readNativeSystemProxy } = {}) {
+  constructor(settings, { readSystemProxy = require('./system-proxy.cjs').readNativeSystemProxy, readLocalProxy = require('./local-proxy.cjs').readLocalProxy, environmentProxy = require('proxy-from-env').getProxyForUrl } = {}) {
     this.settings = settings;
     this.readSystemProxy = readSystemProxy;
+    this.readLocalProxy = readLocalProxy;
+    this.environmentProxy = environmentProxy;
     this.cachedAt = 0;
     this.agent = new ProxyAgent({ getProxyForUrl: url => this.resolve(url) });
   }
 
   async resolve(url) {
-    const config = await this.settings.read();
+    if (!this.configAt || Date.now() - this.configAt > 3000) {
+      this.configRefresh ||= (async () => {
+        this.config = await this.settings.read();
+        this.manualURL = this.config.proxy?.mode === 'manual' ? await this.settings.proxyURL() : '';
+        this.configAt = Date.now();
+      })().finally(() => { this.configRefresh = null; });
+      await this.configRefresh;
+    }
+    const config = this.config;
     if (config.proxy?.mode === 'manual') {
-      const proxy = await this.settings.proxyURL();
+      const proxy = this.manualURL;
       if (!proxy) throw new Error('手动代理尚未配置，请在设置中保存代理地址');
       return proxy.replace(/^socks5:/, 'socks5h:');
     }
-    if (process.platform !== 'darwin' && ['HTTP_PROXY','HTTPS_PROXY','ALL_PROXY','http_proxy','https_proxy','all_proxy'].some(key => process.env[key])) return require('proxy-from-env').getProxyForUrl(url);
     if (Date.now() - this.cachedAt > 3000) {
-      this.system = await this.readSystemProxy();
-      this.cachedAt = Date.now();
+      this.refresh ||= (async () => {
+        this.system = await this.readSystemProxy();
+        this.cachedAt = Date.now();
+      })().finally(() => { this.refresh = null; });
+      await this.refresh;
     }
-    return parseSystemProxy(this.system, url);
+    const system = parseSystemProxy(this.system, url);
+    if (system) return system;
+    // An explicit NO_PROXY decision must also bypass local auto detection.
+    if (['HTTP_PROXY','HTTPS_PROXY','ALL_PROXY','http_proxy','https_proxy','all_proxy'].some(key => process.env[key])) return this.environmentProxy(url);
+    if (!this.localAt || Date.now() - this.localAt > 3000) {
+      this.localRefresh ||= this.readLocalProxy().then(value => { this.local = value; this.localAt = Date.now(); }).finally(() => { this.localRefresh = null; });
+      await this.localRefresh;
+    }
+    return this.local || '';
+  }
+
+  async browserRoute(url) {
+    const target = new URL(url);
+    if (!['http:', 'https:', 'ws:', 'wss:'].includes(target.protocol)) return { type: 'direct' };
+    let route = await this.resolve(url.replace(/^ws/, 'http'));
+    if (route.startsWith('pac+')) {
+      const pacURL = route.slice(4);
+      if (this.pacURL !== pacURL || Date.now() - this.pacAt > 30000) {
+        const { default: fetch } = await import('node-fetch');
+        const response = await fetch(pacURL, { signal: AbortSignal.timeout(10000), size: 1048576 });
+        if (!response.ok) throw new Error('代理脚本读取失败');
+        this.pacScript = await response.text(); this.pacURL = pacURL; this.pacAt = Date.now();
+      }
+      route = await resolvePacRoute(this.pacScript, url);
+    }
+    if (!route) return { type: 'direct' };
+    const proxy = new URL(route);
+    const type = { 'http:': 'http', 'https:': 'https', 'socks5:': 'socks', 'socks5h:': 'socks', 'socks4:': 'socks4' }[proxy.protocol];
+    if (!type) throw new Error('不支持的代理类型');
+    return { type, host: proxy.hostname, port: Number(proxy.port || (type === 'https' ? 443 : type === 'http' ? 80 : 1080)), proxyDNS: type === 'socks', username: decodeURIComponent(proxy.username), password: decodeURIComponent(proxy.password) };
   }
 
   async fetch(url, options) {

@@ -54,3 +54,16 @@ test('best quality uses the downloader default and a failed start permits retry'
   assert.equal(f.messages.at(-1).args.format, undefined);
   assert.equal(f.opened(), 1);
 });
+
+test('quality tab retains the source page for download cookies and request context', async () => {
+  const background = fs.readFileSync(require.resolve('../firefox/background.js'), 'utf8');
+  const start = background.indexOf('async function activeTab()');
+  const end = background.indexOf('async function execute(', start);
+  const source = { id: 7, url: 'https://x.com/user/status/123' };
+  const context = vm.createContext({ browser: {
+    tabs: { query: async () => [{ url: 'moz-extension://fixture/download-options.html?url=video', openerTabId: 7 }], get: async id => { assert.equal(id, 7); return source; } },
+    runtime: { getURL: file => 'moz-extension://fixture/' + file }
+  } });
+  vm.runInContext(background.slice(start, end), context);
+  assert.equal((await context.activeTab()).id, source.id);
+});

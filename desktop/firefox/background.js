@@ -2,7 +2,10 @@
 let bridgeSocket;
 let reconnectTimer;
 async function activeTab() {
-  const [tab] = await browser.tabs.query({ active: true, lastFocusedWindow: true });
+  let [tab] = await browser.tabs.query({ active: true, lastFocusedWindow: true });
+  if (tab?.url?.startsWith(browser.runtime.getURL('download-options.html') + '?') && Number.isInteger(tab.openerTabId)) {
+    tab = await browser.tabs.get(tab.openerTabId);
+  }
   if (!tab || !/^https?:/.test(tab.url || '')) throw new Error('请先打开一个 HTTP/HTTPS 网页标签');
   return tab;
 }
@@ -359,7 +362,7 @@ browser.contextMenus.onClicked.addListener(async (info, tab) => {
     const args = await browser.tabs.sendMessage(tab.id, { type: 'media-context-target' }, { frameId: info.frameId || 0 });
     if (!args) throw new Error(browser.i18n.getUILanguage().startsWith('zh') ? '请在视频、播放器或视频缩略图上右键下载' : 'Right-click a video, player or video thumbnail to download');
     if (args.media) {
-      await browser.tabs.create({ url: browser.runtime.getURL('download-options.html') + '?url=' + encodeURIComponent(args.url) });
+      await browser.tabs.create({ url: browser.runtime.getURL('download-options.html') + '?url=' + encodeURIComponent(args.url), openerTabId: tab.id });
     } else {
       await startNativeDownload(args);
       await browser.obscuraNative.openDownloads();

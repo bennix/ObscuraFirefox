@@ -267,6 +267,8 @@ browser.webRequest.onAuthRequired.addListener(async details => {
   if (!details.isProxy) return {};
   const auth = await proxyRequest({ url: details.url });
   if (auth.username && auth.host === details.challenger.host && auth.port === details.challenger.port) return { authCredentials: { username: auth.username, password: auth.password } };
+  if (!auth.username && auth.host === details.challenger.host && auth.port === details.challenger.port &&
+      ['localhost', '127.0.0.1', '[::1]', '::1'].includes(auth.host)) return { cancel: true };
   return {};
 }, { urls: ['<all_urls>'] }, ['blocking']);
 applyProxy().catch(() => {});

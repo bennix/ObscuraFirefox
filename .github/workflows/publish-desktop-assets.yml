@@ -37,7 +37,7 @@ jobs:
           import hashlib,json,pathlib,shutil
           root=pathlib.Path('installers'); out=pathlib.Path('publish');out.mkdir()
           run=json.load(open('/tmp/package-run.json'))
-          expected={'installers-Linux-x64':{'ObscuraFirefox-0.3.8-linux-amd64.deb','ObscuraFirefox-0.3.8-linux-x86_64.rpm'},'installers-Windows-x64':{'ObscuraFirefox-0.3.8-windows-x64-setup.exe'}}
+          expected={'installers-Linux-x64':{'ObscuraFirefox-0.3.9-linux-amd64.deb','ObscuraFirefox-0.3.9-linux-x86_64.rpm'},'installers-Windows-x64':{'ObscuraFirefox-0.3.9-windows-x64-setup.exe'}}
           assert list(root.iterdir()), 'No installer artifacts'
           for folder in root.iterdir():
             assert folder.name in expected, folder.name
@@ -48,7 +48,7 @@ jobs:
               digest=hashlib.file_digest(file.open('rb'),'sha256').hexdigest()
               (out/(file.name+'.sha256')).write_text(digest+'  '+file.name+'\n')
             platform='linux' if 'Linux' in folder.name else 'windows'
-            (out/f'ObscuraFirefox-0.3.8-{platform}-build.json').write_text(json.dumps({'packageCommit':run['head_sha'],'packageRun':run['html_url'],'files':sorted(expected[folder.name])},indent=2))
+            (out/f'ObscuraFirefox-0.3.9-{platform}-build.json').write_text(json.dumps({'packageCommit':run['head_sha'],'packageRun':run['html_url'],'files':sorted(expected[folder.name])},indent=2))
           PY
       - name: Upload verified installers
-        run: gh release upload firefox-v0.3.8 publish/* --repo "$GITHUB_REPOSITORY" --clobber
+        run: gh release upload firefox-v0.3.9 publish/* --repo "$GITHUB_REPOSITORY" --clobber

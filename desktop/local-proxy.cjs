@@ -10,7 +10,10 @@ function configuredEndpoints(text) {
   const endpoints = [];
   for (const [key, scheme] of [['mixed-port', 'http'], ['port', 'http'], ['socks-port', 'socks5h']]) {
     const match = text.match(new RegExp('^' + key + ':\\s*(\\d+)\\s*(?:#.*)?$', 'm'));
-    if (match && +match[1] > 0 && +match[1] <= 65535) endpoints.push(`${scheme}://127.0.0.1:${+match[1]}`);
+    if (match && +match[1] > 0 && +match[1] <= 65535) {
+      endpoints.push(`${scheme}://127.0.0.1:${+match[1]}`);
+      if (key === 'mixed-port') endpoints.push(`socks5h://127.0.0.1:${+match[1]}`);
+    }
   }
   try {
     for (const inbound of JSON.parse(text).inbounds || []) {
@@ -30,7 +33,7 @@ function available(endpoint) {
     socket.setTimeout(700, () => finish(false));
     socket.on('error', () => finish(false));
     socket.on('connect', () => socket.write(url.protocol === 'http:' ? 'CONNECT 127.0.0.1:9 HTTP/1.1\r\nHost: 127.0.0.1:9\r\n\r\n' : Buffer.from([5, 1, 0])));
-    socket.once('data', data => finish(url.protocol === 'http:' ? /^HTTP\/1\.[01] \d{3}/.test(data.toString()) : data[0] === 5 && data[1] === 0));
+    socket.once('data', data => finish(url.protocol === 'http:' ? /^HTTP\/1\.[01] (?!407)\d{3}/.test(data.toString()) : data[0] === 5 && data[1] === 0));
     socket.on('end', () => finish(false));
   });
 }

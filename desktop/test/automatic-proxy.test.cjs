@@ -44,3 +44,17 @@ test('environment SOCKS5 routing keeps DNS at the proxy for backend and browser'
     assert.equal((await transport.browserRoute('https://chatgpt.com')).proxyDNS, true);
   } finally { transport.close(); if (previous === undefined) delete process.env.ALL_PROXY; else process.env.ALL_PROXY = previous; }
 });
+
+test('mixed listener offering HTTP 407 and anonymous SOCKS5 selects SOCKS5', async () => {
+  const net = require('node:net');
+  const server = net.createServer(socket => socket.once('data', data => {
+    socket.end(data[0] === 5 ? Buffer.from([5, 0]) : 'HTTP/1.1 407 Proxy Authentication Required\r\n\r\n');
+  }));
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const port = server.address().port;
+  try {
+    const route = await readLocalProxy({ platform: 'linux', run: async () => ({ stdout: '/bin/mihomo -f /fixture.yaml' }),
+      readFile: async () => 'mixed-port: ' + port });
+    assert.equal(route, 'socks5h://127.0.0.1:' + port);
+  } finally { await new Promise(resolve => server.close(resolve)); }
+});

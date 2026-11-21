@@ -100,15 +100,27 @@ for (const {scheme, authenticated} of [{scheme:'http'}, {scheme:'http',authentic
   });
   const proxyURL = `${scheme}://${authenticated ? 'fixture-user:fixture-pass@' : ''}127.0.0.1:${proxy.address().port}`;
   const target = `http://${address}:${origin.address().port}/route-check`;
-  app = await start({ binary: process.env.OBSCURA_FIREFOX_BIN, directory, testing: true, url: 'about:blank', settings: {
+  const options = { binary: process.env.OBSCURA_FIREFOX_BIN, directory, testing: true, url: target, settings: {
     read: async () => ({ searchEngine: 'google', theme: 'dark', proxy: { mode: 'manual', url: proxyURL } }),
     proxyURL: async () => proxyURL
-  } });
-  const deadline = Date.now() + 60000;
-  while (!app.tools.browserClient.open && Date.now() < deadline) await pause(100);
-  assert.equal(app.tools.browserClient.open, true);
-  const navigation = value(await app.tools.call('browser_navigate', { url: target }));
-  assert.equal(navigation.url, target);
+  } };
+  async function verifyStartup() {
+    app = await start(options);
+    const deadline = Date.now() + 60000;
+    while (Date.now() < deadline) {
+      if (app.tools.browserClient.open) {
+        const tabs = value(await app.tools.call('browser_tabs'));
+        if (tabs.some(tab => tab.url === target && tab.title === 'Via Obscura proxy')) return;
+      }
+      await pause(100);
+    }
+    assert.fail('First navigation must load through the configured proxy without a retry');
+  }
+  await verifyStartup();
+  if (scheme === 'http' && !authenticated) {
+    await app.close();
+    await verifyStartup();
+  }
   if(scheme==='https') assert.deepEqual(proxyErrors, []);
   assert.equal(value(await app.tools.call('browser_snapshot')).title, 'Via Obscura proxy');
   assert.ok(requests.includes(['http', 'https'].includes(scheme) ? target : `${scheme}://${address}:${origin.address().port}`));

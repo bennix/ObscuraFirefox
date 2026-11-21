@@ -29,7 +29,8 @@ async function start(options = {}) {
   // options.binary is Firefox here; the backend's binary option refers to the
   // separate Rust engine and must retain its bundled default.
   const { binary: firefoxBinary, ...backendOptions } = options;
-  const backend = await launch({ ...backendOptions, directory, extensionBridge: true, browserTools: tools, browserVersion });
+  const initialURL = options.url || 'https://www.google.com/';
+  const backend = await launch({ ...backendOptions, directory, startupURL: /^https?:/i.test(initialURL) ? new URL(initialURL).href : null, extensionBridge: true, browserTools: tools, browserVersion });
   if (!backend) return null;
   let child;
   try {
@@ -66,7 +67,7 @@ async function start(options = {}) {
     await fs.writeFile(path.join(profile, 'user.js'), prefs, { mode: 0o600 });
     // Keep Windows' launcher attached to the real browser so its early handoff
     // does not close the local backend while Firefox is still starting.
-    child = spawn(binary, [...(process.platform === 'win32' ? ['-wait-for-browser'] : []), '-no-remote', '-profile', profile, options.url || 'https://www.google.com/'], { windowsHide: true, stdio: options.testing ? 'inherit' : 'ignore' });
+    child = spawn(binary, [...(process.platform === 'win32' ? ['-wait-for-browser'] : []), '-no-remote', '-profile', profile, backend.startupURL || initialURL], { windowsHide: true, stdio: options.testing ? 'inherit' : 'ignore' });
     await new Promise((resolve, reject) => { child.once('spawn', resolve); child.once('error', reject); });
     child.once('exit', () => backend.close('firefox-exit').catch(() => {}));
     return { ...backend, child, profile, close: async () => {

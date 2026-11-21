@@ -30,6 +30,7 @@ class FirefoxTools {
     this.rejectPending('Firefox bridge reconnected');
     this.socket = ws;
     this.browserClient.open = true;
+    this.wss.emit('routing-ready');
     ws.on('message', raw => {
       let message;
       try { message = JSON.parse(raw.toString()); } catch { return; }

@@ -66,10 +66,10 @@ jobs:
       - name: Archive for Developer ID signing and notarization
         run: |
           mkdir -p desktop/release
-          ditto -c -k --sequesterRsrc --keepParent 'desktop/dist/Obscura Firefox.app' desktop/release/ObscuraFirefox-0.3.9-macos-x64-unsigned.zip
+          ditto -c -k --sequesterRsrc --keepParent 'desktop/dist/Obscura Firefox.app' desktop/release/ObscuraFirefox-0.3.10-macos-x64-unsigned.zip
       - uses: actions/upload-artifact@v4
         with:
           name: installers-macOS-x64
-          path: desktop/release/ObscuraFirefox-0.3.9-macos-x64-unsigned.zip
+          path: desktop/release/ObscuraFirefox-0.3.10-macos-x64-unsigned.zip
           if-no-files-found: error
           retention-days: 14

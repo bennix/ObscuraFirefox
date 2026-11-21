@@ -41,6 +41,9 @@ async function launch(options = {}) {
   const allDefinitions = [...(tools.definitions || definitions), ...toolDefinitions];
   let engine, browserProcess, controller, operation = false, chromeVersion = 'starting';
   const token = crypto.randomBytes(32).toString('hex');
+  // A per-launch URL lets the first tab wait locally until Firefox has installed
+  // its proxy listener. It grants no access to authenticated backend APIs.
+  const startupPath = options.extensionBridge && options.startupURL ? '/startup/' + crypto.randomUUID() : null;
   const events = [];
   let liveChat = null;
   let network = { status: 'idle' };
@@ -73,6 +76,18 @@ async function launch(options = {}) {
       res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
       res.end(JSON.stringify(data));
     };
+    if (startupPath && req.method === 'GET' && req.url === startupPath) {
+      const redirect = () => {
+        res.writeHead(302, { Location: options.startupURL, 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' });
+        res.end();
+      };
+      if (tools.browserClient.open) redirect();
+      else {
+        tools.wss.once('routing-ready', redirect);
+        res.once('close', () => tools.wss.off('routing-ready', redirect));
+      }
+      return;
+    }
     if (req.headers['x-obscura-token'] !== token) { send(401, { error: 'Unauthorized' }); return; }
     try {
       if (req.method === 'GET') {
@@ -266,7 +281,7 @@ async function launch(options = {}) {
     tools.onBrowserLost = () => close('browser-disconnected').catch(() => {});
     diagnostics.record('app.ready', { version: require('./package.json').version, chromium: chromeVersion, xCompatibility: tools.authCompatibility === true });
     await fs.writeFile(lock, JSON.stringify({ origin, token, standalone: true, browserEndpoint: options.browserEndpoint }), { mode: 0o600 });
-    return { origin, token, tools, settings, server, downloads, diagnostics, close, directory };
+    return { origin, startupURL: startupPath && origin + startupPath, token, tools, settings, server, downloads, diagnostics, close, directory };
   }
   const extension = path.join(directory, 'extension');
   await fs.cp(path.join(__dirname, 'extension'), extension, { recursive: true });

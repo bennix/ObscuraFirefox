@@ -11,7 +11,7 @@ Firefox 原生下载进度、沉浸式翻译与个人词典。界面跟随浏览
 
 ## Status / 当前状态
 
-[Version 0.3.9](https://github.com/bennix/ObscuraFirefox/releases/tag/firefox-v0.3.9)
+[Version 0.3.10](https://github.com/bennix/ObscuraFirefox/releases/tag/firefox-v0.3.10)
 provides Apple-notarized macOS ARM64 and Intel x86_64 DMGs, a Windows x64 EXE, and Linux
 amd64 DEB / x86_64 RPM packages. Windows native runtime checks passed; the
 installer is unsigned. Linux checks passed on Ubuntu 24.04 and after DEB
@@ -19,7 +19,7 @@ installation; RPM engine and FFmpeg binaries match the installed DEB.
 Physical Windows installation and additional Linux distributions have not been
 validated. macOS Touch ID passkeys are unavailable pending Apple browser entitlement approval; website login compatibility varies.
 
-0.3.9 已发布 Apple 公证的 macOS ARM64 与 Intel x86_64 DMG、Windows x64 EXE，以及 Linux
+0.3.10 已发布 Apple 公证的 macOS ARM64 与 Intel x86_64 DMG、Windows x64 EXE，以及 Linux
 amd64 DEB / x86_64 RPM。Windows 原生运行时检查通过，安装程序暂未签名；Linux
 在 Ubuntu 24.04 和 DEB 实际安装后通过检查，RPM 的引擎及 FFmpeg 与已安装 DEB 一致。
 尚未完成物理 Windows 机器安装和其他 Linux 发行版验收；macOS Touch ID 通行密钥因缺少 Apple 浏览器授权暂不可用，网站登录兼容性取决于具体站点。平台源码提交与工作流记录见发布附件，当前采用手动更新。

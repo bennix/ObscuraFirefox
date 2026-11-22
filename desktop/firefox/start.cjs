@@ -37,14 +37,16 @@ async function start(options = {}) {
     // Same Firefox engine build, newer built-in workspace: discard only startup
     // caches so upgrades load the new extension instead of cached resources.
     const workspaceVersion = JSON.parse(await fs.readFile(path.join(__dirname, 'manifest.json'), 'utf8')).version;
+    const adScript = await fs.readFile(path.join(__dirname, '../extension/youtube-ads.js'));
+    const cacheVersion = workspaceVersion + '-' + require('node:crypto').createHash('sha256').update(adScript).digest('hex');
     const versionFile = path.join(directory, 'workspace-version');
     let previousWorkspaceVersion = '';
     try { previousWorkspaceVersion = await fs.readFile(versionFile, 'utf8'); }
     catch (error) { if (error.code !== 'ENOENT') throw error; }
-    if (previousWorkspaceVersion !== workspaceVersion) {
+    if (previousWorkspaceVersion !== cacheVersion) {
       await fs.rm(path.join(profile, 'startupCache'), { recursive: true, force: true });
       await fs.rm(path.join(profile, 'addonStartup.json.lz4'), { force: true });
-      await fs.writeFile(versionFile, workspaceVersion, { mode: 0o600 });
+      await fs.writeFile(versionFile, cacheVersion, { mode: 0o600 });
     }
     await installNativeHost(directory);
     const config = await backend.settings.read();

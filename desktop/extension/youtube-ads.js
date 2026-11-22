@@ -2,20 +2,23 @@
   if (!/(^|\.)youtube\.com$/.test(location.hostname)) return;
   if (globalThis.__obscuraYouTubeAds) return;
   globalThis.__obscuraYouTubeAds = true;
-  const accelerated = new Set();
+  const accelerated = new Map();
   function update() {
-    const player = document.querySelector('#movie_player, .html5-video-player');
-    const advertisement = !!player && (player.classList.contains('ad-showing') || player.classList.contains('ad-interrupting'));
-    const video = player?.querySelector('video');
-    for (const previous of accelerated) {
-      if (previous !== video || !advertisement) {
-        previous.playbackRate = 1;
-        accelerated.delete(previous);
-      }
+    const adVideos = new Set();
+    for (const player of document.querySelectorAll('.html5-video-player, #movie_player')) {
+      if (!player.classList.contains('ad-showing') && !player.classList.contains('ad-interrupting')) continue;
+      const video = player.querySelector('video.html5-main-video') || player.querySelector('video');
+      if (video) adVideos.add(video);
     }
-    if (!video || !advertisement) return;
-    accelerated.add(video);
-    if (video.playbackRate !== 8) video.playbackRate = 8;
+    for (const [video, originalRate] of accelerated) {
+      if (adVideos.has(video)) continue;
+      if (video.playbackRate === 8) video.playbackRate = originalRate;
+      accelerated.delete(video);
+    }
+    for (const video of adVideos) {
+      if (!accelerated.has(video)) accelerated.set(video, video.playbackRate);
+      if (video.playbackRate !== 8) video.playbackRate = 8;
+    }
   }
   const observer = new MutationObserver(update);
   observer.observe(document, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] });

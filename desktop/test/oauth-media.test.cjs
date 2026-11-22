@@ -27,22 +27,26 @@ test('Google OAuth popup preserves opener across response isolation headers', ()
   assert.deepEqual(oauthPopupHeaders({ url: 'https://accounts.google.com/gsi/iframe', type: 'sub_frame', responseHeaders: headers }), {});
 });
 
-test('YouTube ads run at 8x and content returns to 1x with reused or replaced videos', () => {
+test('YouTube ads run at 8x and content returns to its original rate with reused or replaced videos', () => {
   const source = fs.readFileSync(path.join(__dirname, '../extension/youtube-ads.js'), 'utf8');
   let ad = false;
   let video = { playbackRate: 1 };
   let mutation, interval;
   const events = {};
   const player = { classList: { contains: name => ad && name === 'ad-showing' }, querySelector: () => video };
-  const document = { querySelector: () => player, addEventListener: (name, handler) => { events[name] = handler; } };
+  const preview = { playbackRate: 1 };
+  const idlePlayer = { classList: { contains: () => false }, querySelector: () => preview };
+  const document = { querySelectorAll: () => [idlePlayer, player], addEventListener: (name, handler) => { events[name] = handler; } };
   vm.runInNewContext(source, { location: { hostname: 'www.youtube.com' }, document, MutationObserver: class { constructor(callback) { mutation = callback; } observe() {} }, setInterval: callback => { interval = callback; } });
   assert.equal(video.playbackRate, 1);
+  video.playbackRate = 1.5;
   ad = true; mutation(); assert.equal(video.playbackRate, 8);
+  assert.equal(preview.playbackRate, 1);
   video.playbackRate = 1; events.ratechange(); assert.equal(video.playbackRate, 8);
-  ad = false; mutation(); assert.equal(video.playbackRate, 1);
+  ad = false; mutation(); assert.equal(video.playbackRate, 1.5);
   ad = true; mutation();
   const previous = video; video = { playbackRate: 1 }; interval();
-  assert.equal(previous.playbackRate, 1); assert.equal(video.playbackRate, 8);
+  assert.equal(previous.playbackRate, 1.5); assert.equal(video.playbackRate, 8);
   ad = false; events['yt-navigate-finish'](); assert.equal(video.playbackRate, 1);
 });
 

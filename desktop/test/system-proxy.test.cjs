@@ -13,3 +13,9 @@ test('Linux does not silently ignore an unreadable configured proxy', async () =
   const error = Object.assign(new Error('access denied'), { code: 1, stderr: 'Permission denied' });
   await assert.rejects(readNativeSystemProxy({ platform: 'linux', run: async () => { throw error; } }), /access denied/);
 });
+
+test('macOS can omit disabled proxy flags on a direct network', async () => {
+  const { parseSystemProxy } = require('../proxy.cjs');
+  const system = await readNativeSystemProxy({ platform: 'darwin', run: async () => ({ stdout: '<dictionary> {\n  ExcludeSimpleHostnames : 0\n}\n' }) });
+  assert.equal(parseSystemProxy(system, 'https://example.org'), 'direct');
+});

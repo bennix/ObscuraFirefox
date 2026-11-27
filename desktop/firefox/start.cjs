@@ -50,12 +50,22 @@ async function start(options = {}) {
     }
     await installNativeHost(directory);
     const config = await backend.settings.read();
+    let startupProxyType = 1;
+    if (config.proxy?.mode !== 'manual') {
+      // On a confirmed direct network, restored tabs may load before the extension connects.
+      const { readNativeSystemProxy } = require('../system-proxy.cjs');
+      const { parseSystemProxy } = require('../proxy.cjs');
+      try {
+        const system = await readNativeSystemProxy();
+        if (parseSystemProxy(system, 'https://localhost') === 'direct') startupProxyType = 5;
+      } catch { /* Keep the startup guard until routing is known. */ }
+    }
     const defaults = (await fs.readFile(path.join(__dirname, 'privacy-prefs.js'), 'utf8')).replace('pref("privacy.resistFingerprinting.exemptedDomains", "");', `pref("privacy.resistFingerprinting.exemptedDomains", ${JSON.stringify(config.authCompatibility ? 'x.com,*.x.com' : '')});`);
     const prefs = defaults.replace(/^pref\(/gm, 'user_pref(') + '\n' + [
       ['browser.shell.checkDefaultBrowser', false],
       // Block external startup traffic until the extension installs the shared
       // proxy resolver. The local backend remains reachable for authenticated setup.
-      ['network.proxy.type', 1],
+      ['network.proxy.type', startupProxyType],
       ['network.proxy.http', ''],
       ['network.proxy.ssl', ''],
       ['network.proxy.socks', '127.0.0.1'],

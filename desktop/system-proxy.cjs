@@ -2,7 +2,14 @@ const { execFile } = require('node:child_process');
 const execute = require('node:util').promisify(execFile);
 const dictionary = values => '<dictionary> {\n' + Object.entries(values).map(([key, value]) => `  ${key} : ${value}`).join('\n') + '\n}';
 async function readNativeSystemProxy({ platform = process.platform, run = execute } = {}) {
-  if (platform === 'darwin') return (await run('/usr/sbin/scutil', ['--proxy'], { timeout: 3000 })).stdout;
+  if (platform === 'darwin') {
+    const { stdout } = await run('/usr/sbin/scutil', ['--proxy'], { timeout: 3000 });
+    // SystemConfiguration can omit disabled flags entirely.
+    if (/^<dictionary> \{/.test(stdout) && !/^\s*(?:HTTP|HTTPS|SOCKS|ProxyAutoConfig|ProxyAutoDiscovery)Enable\s*:\s*1\s*$/m.test(stdout)) {
+      return dictionary({ HTTPEnable: 0, HTTPSEnable: 0, SOCKSEnable: 0 });
+    }
+    return stdout;
+  }
   const values = {};
   if (platform === 'win32') {
     const script = "Get-ItemProperty 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings' | Select-Object ProxyEnable,ProxyServer,AutoConfigURL | ConvertTo-Json -Compress";

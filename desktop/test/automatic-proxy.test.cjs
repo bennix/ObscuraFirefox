@@ -85,3 +85,20 @@ test('active OS tunnel takes priority over private proxy cores and inherited env
   try { assert.equal((await transport.browserRoute('https://bennix.github.io')).type, 'direct'); }
   finally { transport.close(); }
 });
+
+test('switching to explicit system direct stops routing pages and resources through inherited proxies', async () => {
+  let system = '<dictionary> {\n SOCKSEnable : 1\n SOCKSProxy : 127.0.0.1\n SOCKSPort : 1080\n}';
+  const transport = new ProxyTransport({ read: async () => ({}) }, {
+    readSystemProxy: async () => system, readTunnel: async () => false,
+    readLocalProxy: () => assert.fail('local proxy discovery on direct network'),
+    environmentProxy: () => assert.fail('environment override on direct network')
+  });
+  try {
+    assert.equal((await transport.browserRoute('https://x.com')).type, 'socks');
+    system = '<dictionary> {\n HTTPEnable : 0\n HTTPSEnable : 0\n SOCKSEnable : 0\n}';
+    transport.cachedAt = 0;
+    for (const host of ['www.google.com', 'x.com', 'abs.twimg.com']) {
+      assert.deepEqual(await transport.browserRoute('https://' + host), { type: 'direct' });
+    }
+  } finally { transport.close(); }
+});

@@ -8,6 +8,7 @@ async function readNativeSystemProxy({ platform = process.platform, run = execut
     const script = "Get-ItemProperty 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings' | Select-Object ProxyEnable,ProxyServer,AutoConfigURL | ConvertTo-Json -Compress";
     const config = JSON.parse((await run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { timeout: 10000, windowsHide: true })).stdout);
     if (config.AutoConfigURL) return dictionary({ ProxyAutoConfigEnable: 1, ProxyAutoConfigURLString: config.AutoConfigURL });
+    if (config.ProxyEnable === 0) return dictionary({ HTTPEnable: 0, HTTPSEnable: 0, SOCKSEnable: 0 });
     if (config.ProxyEnable && config.ProxyServer) {
       const entries = config.ProxyServer.includes('=') ? config.ProxyServer.split(';') : ['http='+config.ProxyServer, 'https='+config.ProxyServer];
       for (const entry of entries) {
@@ -24,6 +25,7 @@ async function readNativeSystemProxy({ platform = process.platform, run = execut
   let mode;
   try { mode = await get('org.gnome.system.proxy', 'mode'); }
   catch (error) { if (error.code === 'ENOENT' || /No such schema/.test(error.stderr || '')) return dictionary({}); throw error; }
+  if (mode === 'none') return dictionary({ HTTPEnable: 0, HTTPSEnable: 0, SOCKSEnable: 0 });
   if (mode === 'auto') return dictionary({ ProxyAutoConfigEnable:1, ProxyAutoConfigURLString:await get('org.gnome.system.proxy','autoconfig-url') });
   if (mode === 'manual') for (const [scheme, prefix] of [['http','HTTP'],['https','HTTPS'],['socks','SOCKS']]) {
     const host = await get('org.gnome.system.proxy.'+scheme,'host');

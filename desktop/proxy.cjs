@@ -24,6 +24,8 @@ function parseSystemProxy(text, target) {
   }
   if (values.SOCKSEnable === '1') return `socks5h://${values.SOCKSProxy}:${values.SOCKSPort}`;
   if (values.ProxyAutoDiscoveryEnable === '1') throw new Error('系统启用了代理自动发现，请在设置中指定代理地址以连接 AI');
+  // A desktop can explicitly disable proxies while a proxy client is still running.
+  if (['HTTPEnable', 'HTTPSEnable', 'SOCKSEnable'].every(key => values[key] === '0')) return 'direct';
   return '';
 }
 
@@ -61,6 +63,7 @@ class ProxyTransport {
       await this.refresh;
     }
     const system = parseSystemProxy(this.system, url);
+    if (system === 'direct') return '';
     if (system) return this.adaptAutomaticRoute(system);
     if (this.tunnel) return '';
     // An explicit NO_PROXY decision must also bypass local auto detection.

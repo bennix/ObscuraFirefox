@@ -69,7 +69,11 @@ async function start(options = {}) {
     await fs.writeFile(path.join(profile, 'user.js'), prefs, { mode: 0o600 });
     // Keep Windows' launcher attached to the real browser so its early handoff
     // does not close the local backend while Firefox is still starting.
-    child = spawn(binary, [...(process.platform === 'win32' ? ['-wait-for-browser'] : []), '-no-remote', '-profile', profile, backend.startupURL || initialURL], { windowsHide: true, stdio: options.testing ? 'inherit' : 'ignore' });
+    // Gecko checks restart-profile paths before the explicit -profile argument.
+    const browserEnv = { ...process.env };
+    delete browserEnv.XRE_PROFILE_PATH;
+    delete browserEnv.XRE_PROFILE_LOCAL_PATH;
+    child = spawn(binary, [...(process.platform === 'win32' ? ['-wait-for-browser'] : []), '-no-remote', '-profile', profile, backend.startupURL || initialURL], { env: browserEnv, windowsHide: true, stdio: options.testing ? 'inherit' : 'ignore' });
     await new Promise((resolve, reject) => { child.once('spawn', resolve); child.once('error', reject); });
     child.once('exit', () => backend.close('firefox-exit').catch(() => {}));
     return { ...backend, child, profile, close: async () => {

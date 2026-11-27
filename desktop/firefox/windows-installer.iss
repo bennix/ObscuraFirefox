@@ -1,4 +1,4 @@
-#define AppVersion "0.3.12"
+#define AppVersion "0.3.13"
 [Setup]
 AppId=ai.obscura.firefox
 AppName=Obscura Firefox

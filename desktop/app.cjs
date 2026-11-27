@@ -252,11 +252,19 @@ async function launch(options = {}) {
       const version = await (await fetch(options.browserEndpoint + '/json/version')).json();
       chromeVersion = version.Browser.split('/').at(-1);
     }
+    let updateTimer;
+    if (options.extensionBridge && !options.testing) {
+      const check = () => require('./firefox/updates.cjs').checkUpdates(directory, transport, tools)
+        .catch(error => diagnostics.record('update.check', { error: error.message }));
+      tools.wss.once('routing-ready', check);
+      updateTimer = setInterval(check, 60 * 60 * 1000);
+      updateTimer.unref();
+    }
     let closing, closeReason;
     const finished = new Set();
     // Each teardown step runs once; a failed step is retried by the next close() call.
     const steps = [
-      () => { controller?.abort(); engine?.close(); },
+      () => { clearInterval(updateTimer); controller?.abort(); engine?.close(); },
       () => diagnostics.record('app.close', { reason: closeReason, browserConnected: tools.browserClient?.open === true }),
       () => downloads.close(), () => transport.close(), () => tools.close(), () => server.close(),
       () => diagnostics.flush(),

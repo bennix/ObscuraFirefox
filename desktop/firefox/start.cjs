@@ -71,6 +71,8 @@ async function start(options = {}) {
     // does not close the local backend while Firefox is still starting.
     // Gecko checks restart-profile paths before the explicit -profile argument.
     const browserEnv = { ...process.env };
+    // Gecko initializes its application data directory before opening the profile.
+    if (process.platform === 'darwin') browserEnv.MOZ_APP_DATA = path.resolve(directory);
     delete browserEnv.XRE_PROFILE_PATH;
     delete browserEnv.XRE_PROFILE_LOCAL_PATH;
     child = spawn(binary, [...(process.platform === 'win32' ? ['-wait-for-browser'] : []), '-no-remote', '-profile', profile, backend.startupURL || initialURL], { env: browserEnv, windowsHide: true, stdio: options.testing ? 'inherit' : 'ignore' });

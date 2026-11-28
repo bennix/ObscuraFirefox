@@ -85,7 +85,7 @@ mdm_root=next(f.parent for f in mdm_dir.rglob('misterdownloadmanager'+suffix))
 shutil.copytree(mdm_root,backend/'runtime/mdm',dirs_exist_ok=True)
 media=backend/'runtime/media';(media/'yt-dlp').mkdir(parents=True)
 ytname='yt-dlp.exe' if windows else 'yt-dlp_linux'
-shutil.copy2(asset('yt-dlp/yt-dlp','2026.10.26',ytname),media/'yt-dlp'/ytname)
+shutil.copy2(asset('yt-dlp/yt-dlp','2026.11.23',ytname),media/'yt-dlp'/ytname)
 ffname='ffmpeg-master-latest-'+('win64-gpl.zip' if windows else 'linux64-gpl.tar.xz')
 ffdir=cache/'ffmpeg';extract(asset('yt-dlp/FFmpeg-Builds','latest',ffname),ffdir)
 for name in ['ffmpeg','ffprobe']:
@@ -110,7 +110,7 @@ if not windows:
  launcher.chmod(0o755)
 for license_file in node_dir.rglob('LICENSE'):
  shutil.copy2(license_file,backend/'third-party/NODE-LICENSE.txt');break
-(backend/'third-party/YT-DLP-LICENSE.txt').write_bytes(urllib.request.urlopen('https://raw.githubusercontent.com/yt-dlp/yt-dlp/2026.10.26/LICENSE',timeout=60).read())
+(backend/'third-party/YT-DLP-LICENSE.txt').write_bytes(urllib.request.urlopen('https://raw.githubusercontent.com/yt-dlp/yt-dlp/2026.11.23/LICENSE',timeout=60).read())
 (media/'FFMPEG-VERSION.txt').write_bytes(subprocess.check_output([str(media/('ffmpeg'+suffix)),'-version'],stderr=subprocess.STDOUT))
 (backend/'third-party/BUILD-SOURCES.json').write_text(json.dumps(provenance,indent=2))
 print(out)

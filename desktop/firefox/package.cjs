@@ -13,6 +13,10 @@ async function packageApp(input, output = path.resolve(__dirname, '../dist/Obscu
     packedWorkspace = true;
   }
   const desktop = path.resolve(__dirname, '..');
+  const mediaHelper = path.join(desktop, 'runtime/media/yt-dlp/yt-dlp_macos');
+  const expectedDigest = 'fae70018cfafec300fed62716b006a86b5ea306f15e4771c48338d8d3bc041d1';
+  const actualDigest = require('node:crypto').createHash('sha256').update(await fs.readFile(mediaHelper)).digest('hex');
+  if (actualDigest !== expectedDigest) throw new Error('Extract the official yt-dlp_macos.zip 2026.11.23 distribution before packaging');
   const node = path.join(desktop, `runtime/node-v26.13.1-darwin-${process.arch}/bin/node`);
   await fs.access(node);
   const staging = output + '.building';

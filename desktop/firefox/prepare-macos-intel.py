@@ -63,8 +63,8 @@ finally:
 
 media = desktop / 'runtime/media/yt-dlp'
 media.mkdir(parents=True, exist_ok=True)
-yt = asset('yt-dlp/yt-dlp', '2026.10.26', 'yt-dlp_macos')
-shutil.copy2(yt, media / 'yt-dlp_macos')
+yt = asset('yt-dlp/yt-dlp', '2026.11.23', 'yt-dlp_macos.zip')
+subprocess.run(['ditto', '-x', '-k', str(yt), str(media)], check=True)
 (media / 'yt-dlp_macos').chmod(0o755)
 subprocess.run(['node', 'desktop/prepare-media.cjs'], cwd=repo, check=True)
 
@@ -78,6 +78,6 @@ for name in ['obscura', 'obscura-worker']:
 
 third_party = desktop / 'third-party'
 shutil.copy2(desktop / f'runtime/node-v{version}-darwin-x64/LICENSE', third_party / 'NODE-LICENSE.txt')
-(third_party / 'YT-DLP-LICENSE.txt').write_bytes(urllib.request.urlopen('https://raw.githubusercontent.com/yt-dlp/yt-dlp/2026.10.26/LICENSE', timeout=60).read())
+(third_party / 'YT-DLP-LICENSE.txt').write_bytes(urllib.request.urlopen('https://raw.githubusercontent.com/yt-dlp/yt-dlp/2026.11.23/LICENSE', timeout=60).read())
 (third_party / 'BUILD-SOURCES.json').write_text(json.dumps(provenance, indent=2) + '\n')
 print('Intel Mac helpers staged and checksummed')

@@ -1,7 +1,7 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 
-const currentVersion = '0.3.14';
+const currentVersion = '0.3.15';
 const repository = 'bennix/ObscuraFirefox';
 const day = 24 * 60 * 60 * 1000;
 
